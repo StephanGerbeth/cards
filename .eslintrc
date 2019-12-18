@@ -1,0 +1,61 @@
+{
+  "root": true,
+  "parserOptions": {
+    "parser": "babel-eslint",
+    "ecmaVersion": 2018,
+    "sourceType": "module"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
+  },
+  "plugins": [
+    "json",
+    "vue",
+    "security",
+    "promise"
+  ],
+  "extends": [
+    "plugin:vue/recommended",
+    "eslint:recommended",
+    "plugin:security/recommended",
+    "plugin:promise/recommended"
+  ],
+  "rules": {
+    "array-bracket-newline": [
+      "error",
+      {
+        "multiline": true,
+        "minItems": 1
+      }
+    ],
+    "no-multiple-empty-lines": [
+      "error",
+      {
+        "max": 1,
+        "maxEOF": 1
+      }
+    ],
+    "block-spacing": "error",
+    "no-debugger": "off",
+    "no-console": "off",
+    "no-empty-function": "error",
+    "vue/no-v-html": "off",
+    "semi": [
+      "error",
+      "always"
+    ],
+    "complexity": [
+      "error",
+      {
+        "max": 7
+      }
+    ],
+    "quotes": [
+      "error",
+      "single"
+    ],
+    "security/detect-non-literal-fs-filename": "off"
+  }
+}
