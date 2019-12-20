@@ -70,6 +70,9 @@
     "vetur.format.defaultFormatter.html": "js-beautify-html",
     "window.title": "${dirty} ${activeEditorMedium}${separator}${rootName}",
     "workbench.settings.enableNaturalLanguageSearch": false,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    },
   },
   "extensions": {
     "recommendations": [
