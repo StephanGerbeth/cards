@@ -27,6 +27,7 @@
 <script>
 import Connection from '@/classes/Connection';
 import QrCode from '@/components/atoms/QrCode';
+import { fromEvent } from 'rxjs';
 
 export default {
   components: {
@@ -35,8 +36,8 @@ export default {
 
   data () {
     return {
-      url: null,
-      webrtc: null,
+      generatedKey: null,
+      connection: null,
       connected: false,
       loading: false
     };
@@ -45,6 +46,12 @@ export default {
   computed: {
     key: function () {
       return this.$router.currentRoute.query.key;
+    },
+    url () {
+      if (global.location) {
+        return `${global.location.origin}/?key=${this.generatedKey}`;
+      }
+      return null;
     }
   },
 
@@ -53,25 +60,36 @@ export default {
   },
 
   destroyed () {
-    this.disconnect();
+    this.connection.destroy();
   },
 
   methods: {
-    async connect () {
-      this.webrtc = new Connection(this.key);
-      this.url = await this.webrtc.prepare();
-      const peer = await this.webrtc.connect();
-      this.connected = true;
-      console.log(peer);
-      await this.webrtc.onDisconnect();
-      this.webrtc.destroy();
-      this.webrtc = null;
-      Object.assign(this.$data, this.$options.data.call(this));
-      this.connect();
+    connect () {
+      this.connection = new Connection(this.key);
+      this.connection.open();
+      fromEvent(this.connection, 'key').subscribe((key) => {
+        this.generatedKey = key;
+      });
+      fromEvent(this.connection, 'open').subscribe((peer) => {
+        this.connected = true;
+        fromEvent(peer, 'data').subscribe(([
+          data
+        ]) => {
+          console.log(data);
+        });
+        let count = 0;
+        setInterval(() => {
+          peer.send(`hello ${count++}.`);
+        }, 1000);
+      });
+      fromEvent(this.connection, 'close').subscribe(() => {
+        this.connected = false;
+      });
     },
 
     disconnect () {
-      this.webrtc.disconnect();
+      this.connection.destroy();
+      this.connection = null;
     }
   }
 };

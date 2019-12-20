@@ -10,7 +10,11 @@ export default class Database {
   }
 
   get (key) {
-    return this.entry.child(key);
+    try {
+      return this.entry.child(key);
+    } catch (e) {
+      return this.add();
+    }
   }
 
   update (key, data) {
