@@ -1,9 +1,11 @@
+// import Connection from '@/classes/Connection';
+
 export default class ConnectionManager {
   constructor() {
     this.connections = new Set();
   }
 
-  createConnection () {
-    //
-  }
+  // async connectTo (key) {
+
+  // }
 }

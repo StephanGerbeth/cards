@@ -18,23 +18,33 @@ export default class Connection extends EventEmitter {
     this.subscriptions = [];
   }
 
-  async open () {
+  async open (mediaStream = null) {
+    this.mediaStream = mediaStream;
     this.database = await loadDatabase();
     this.entry = await this.database.get(this.key);
     this.emit('key', this.entry.key);
 
-    this.peer = new FastRTCPeer({ isOfferer: !!this.key });
+    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream } });
     this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
-
-    await detect(this.peer, 'open');
+    await detectConnect(this.peer, this.emit.bind(this));
     console.log('-> connection: open');
-    this.emit('open', this.peer);
+
     await detectDisconnect(this.peer);
     this.cleanup();
     this.emit('close', this.peer);
     if (!this.key) {
-      this.open();
+      this.open(mediaStream);
     }
+  }
+
+  replaceTracks (stream) {
+    this.peer.peerConnection.getSenders().forEach((sender) => {
+      stream.getTracks().forEach((track) => {
+        if (track.kind === sender.track.kind) {
+          sender.replaceTrack(track);
+        }
+      });
+    });
   }
 
   close () {
@@ -65,8 +75,8 @@ export default class Connection extends EventEmitter {
 function observeSignal (peer, entry) {
   return [
     // prevents reconnecting to unique session for slave by page reload
-    // fromEvent(global, 'beforeunload')
-    //   .subscribe(() => peer.close()),
+    fromEvent(global, 'beforeunload')
+      .subscribe(() => entry.remove()),
     fromEvent(peer, 'signal')
       .subscribe((info) => entry.push(prepareSignal(...info))),
     fromEvent(entry.orderByChild('description').equalTo(DESCRIPTION[Number(!peer.isOfferer)]), 'child_added')
@@ -85,11 +95,30 @@ function processSignal (peer, snapshot) {
   peer.dispatch(snapshot.val());
 }
 
+function detectConnect (peer, emit) {
+  return Promise.race([
+    detectStream(peer, emit),
+    detectOpen(peer, emit)
+  ]);
+}
+
+async function detectStream (peer, emit) {
+  const stream = await detect(peer, 'stream');
+  emit('stream', stream);
+  return stream;
+}
+
+async function detectOpen (peer, emit) {
+  const p = await detect(peer, 'open');
+  emit('open', p);
+  return p;
+}
+
 function detectDisconnect (peer) {
   return Promise.race([
     detect(peer, 'close'),
     detect(peer, 'error'),
-    detect(peer, 'connection')
+    // detect(peer, 'connection')
   ]);
 }
 

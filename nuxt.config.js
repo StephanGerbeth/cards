@@ -209,6 +209,9 @@ module.exports = {
     [
       'nuxt-polyfill', {
         features: [
+          // {
+          //   require: 'webrtc-adapter'
+          // },
           {
             require: 'object-fit-images',
             detect: () => 'objectFit' in document.documentElement.style,
