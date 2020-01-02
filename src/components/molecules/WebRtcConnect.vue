@@ -22,23 +22,32 @@
       HangUp!
     </button>
     <video
+      ref="video"
       :srcObject.prop="srcObject"
       autoplay
       playsinline
-      muted
       width="640"
       height="480"
     />
-    <video
+    <!-- <video
       ref="test"
       src="/video/test.mp4"
       autoplay
       playsinline
       muted
       loop
-    />
-    <button @click="changeSource">
-      Change
+    /> -->
+    <button @click="showCamSource">
+      Cam
+    </button>
+    <button @click="showVideoSource">
+      Video
+    </button>
+    <button @click="showTestScreen">
+      TestScreen
+    </button>
+    <button @click="mute">
+      Mute
     </button>
   </div>
 </template>
@@ -78,9 +87,9 @@ export default {
   },
 
   async mounted () {
-    const mediaStream = await this.mediaSource.getUserMediaStream();
-    console.log(mediaStream.getTracks());
-    this.connect(mediaStream);
+    console.log('MOUNTED');
+    // this.connect(this.mediaSource.video());
+    this.connect();
   },
 
   destroyed () {
@@ -90,19 +99,19 @@ export default {
   methods: {
     async connect (mediaStream) {
       this.connection = new Connection(this.key);
-      this.connection.open(mediaStream);
+
       fromEvent(this.connection, 'key').subscribe((key) => {
         this.generatedKey = key;
       });
-      fromEvent(this.connection, 'stream').subscribe(async ([
-        data
-      ]) => {
-        console.log('STREAM', data);
-        this.srcObject = data;
+
+      fromEvent(this.connection, 'stream').subscribe(async (stream) => {
+        console.log('-> controller: add remote stream', stream.getTracks());
+        this.srcObject = stream;
       });
+
       fromEvent(this.connection, 'open').subscribe((/*peer*/) => {
         this.connected = true;
-
+        this.connection.addStream(this.mediaSource.cam());
         // fromEvent(peer, 'data').subscribe(([
         //   data
         // ]) => {
@@ -113,20 +122,32 @@ export default {
         //   peer.send(`hello ${count++}.`);
         // }, 1000);
       });
+
       fromEvent(this.connection, 'close').subscribe(() => {
         this.connected = false;
       });
+
+      this.connection.open(mediaStream);
     },
 
     disconnect () {
       this.connection.destroy();
     },
 
-    async changeSource () {
+    async showCamSource () {
+      this.connection.addStream(this.mediaSource.cam());
+    },
 
-      const stream = await this.mediaSource.getBlackSilenceStream();
-      // // const video = stream.getVideoTracks();
-      this.connection.replaceTracks(stream);
+    async showVideoSource () {
+      this.connection.addStream(this.mediaSource.video());
+    },
+
+    async showTestScreen () {
+      this.connection.addStream(this.mediaSource.test());
+    },
+
+    mute () {
+      this.connection.muteStream();
     }
   }
 };

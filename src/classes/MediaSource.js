@@ -1,50 +1,33 @@
+import TestScreen from '@/classes/mediaSource/TestScreen';
+import CamSource from '@/classes/mediaSource/CamSource';
+import VideoSource from '@/classes/mediaSource/VideoSource';
+
 export default class MediaSource {
-  // constructor() { }
-
-  getUserMediaStream () {
-    return global.navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  constructor() {
+    this.source = null;
   }
 
-  async getBlackSilenceStream (...args) {
-    const tracks = await Promise.all([
-      blackScreen(...args)
-      // silenceAudio()
-    ]);
-    console.log(tracks);
-    return tracks[0];
+  cam () {
+    this.clean();
+    this.source = new CamSource();
+    return this.source;
   }
-}
 
-// function silenceAudio () {
-//   let ctx = new AudioContext(), oscillator = ctx.createOscillator();
-//   let dst = oscillator.connect(ctx.createMediaStreamDestination());
-//   oscillator.start();
-//   return Promise.resolve(Object.assign(dst.stream.getAudioTracks()[0], { enabled: false }));
-// }
+  video (url = '/video/test.mp4') {
+    this.clean();
+    this.source = new VideoSource(url);
+    return this.source;
+  }
 
-function blackScreen ({ width = 640, height = 480 } = {}) {
+  test () {
+    this.clean();
+    this.source = new TestScreen();
+    return this.source;
+  }
 
-  let canvas = document.createElement('canvas');
-  document.body.appendChild(canvas);
-  canvas.width = width;
-  canvas.height = height;
-
-  updateScreen.bind(canvas)();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let stream = canvas.captureStream(25);
-      console.log(stream);
-      // console.log(stream.getVideoTracks());
-      resolve(stream);
-      // resolve(Object.assign(stream.getVideoTracks()[0], { enabled: false }));
-    }, 100);
-
-  });
-
-}
-
-function updateScreen () {
-  global.requestAnimationFrame(updateScreen.bind(this));
-  this.getContext('2d').fillStyle = '#ff0000';
-  this.getContext('2d').fillRect(0, 0, this.width / 2, this.height / 2);
+  clean () {
+    if (this.source) {
+      this.source.destroy();
+    }
+  }
 }

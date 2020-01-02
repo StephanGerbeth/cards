@@ -16,16 +16,19 @@ export default class Connection extends EventEmitter {
     this.peer = null;
     this.entry = null;
     this.subscriptions = [];
+    this.localStream = null;
+    this.mute = false;
   }
 
-  async open (mediaStream = null) {
-    this.mediaStream = mediaStream;
+  async open (stream = new Promise((resolve) => resolve(null))) {
+    this.localStream = await stream;
     this.database = await loadDatabase();
     this.entry = await this.database.get(this.key);
     this.emit('key', this.entry.key);
 
-    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream } });
-    this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
+    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: this.localStream } });
+    detectStream(this.peer, this.emit.bind(this)),
+      this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
     await detectConnect(this.peer, this.emit.bind(this));
     console.log('-> connection: open');
 
@@ -33,18 +36,21 @@ export default class Connection extends EventEmitter {
     this.cleanup();
     this.emit('close', this.peer);
     if (!this.key) {
-      this.open(mediaStream);
+      this.open(stream);
     }
   }
 
-  replaceTracks (stream) {
-    this.peer.peerConnection.getSenders().forEach((sender) => {
-      stream.getTracks().forEach((track) => {
-        if (track.kind === sender.track.kind) {
-          sender.replaceTrack(track);
-        }
-      });
-    });
+  async addStream (stream) {
+    console.log('-> connection: add local stream');
+    this.localStream = stream;
+    this.mute = false;
+    updateStream(this.peer, await this.localStream.mute(this.mute));
+  }
+
+  async muteStream () {
+    console.log('-> connection: mute local stream');
+    this.mute = !this.mute;
+    updateStream(this.peer, await this.localStream.mute(this.mute));
   }
 
   close () {
@@ -72,9 +78,18 @@ export default class Connection extends EventEmitter {
   }
 }
 
+function updateStream (peer, stream) {
+  console.log('-> connetion: update local stream');
+  peer.addStreams({
+    stream: stream.getTracks().reduce((result, track) => {
+      result[String(track.kind)] = { track };
+      return result;
+    }, {})
+  });
+}
+
 function observeSignal (peer, entry) {
   return [
-    // prevents reconnecting to unique session for slave by page reload
     fromEvent(global, 'beforeunload')
       .subscribe(() => entry.remove()),
     fromEvent(peer, 'signal')
@@ -95,30 +110,25 @@ function processSignal (peer, snapshot) {
   peer.dispatch(snapshot.val());
 }
 
-function detectConnect (peer, emit) {
-  return Promise.race([
-    detectStream(peer, emit),
-    detectOpen(peer, emit)
-  ]);
-}
-
-async function detectStream (peer, emit) {
-  const stream = await detect(peer, 'stream');
-  emit('stream', stream);
-  return stream;
-}
-
-async function detectOpen (peer, emit) {
+async function detectConnect (peer, emit) {
   const p = await detect(peer, 'open');
   emit('open', p);
   return p;
 }
 
+async function detectStream (peer, emit) {
+  const [
+    stream
+  ] = await detect(peer, 'stream');
+  console.log('-> connection: got remote stream');
+  emit('stream', stream);
+  return stream;
+}
+
 function detectDisconnect (peer) {
   return Promise.race([
     detect(peer, 'close'),
-    detect(peer, 'error'),
-    // detect(peer, 'connection')
+    detect(peer, 'error')
   ]);
 }
 
