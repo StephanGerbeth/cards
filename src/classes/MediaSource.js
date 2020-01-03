@@ -1,6 +1,9 @@
-import TestScreen from '@/classes/mediaSource/TestScreen';
-import CamSource from '@/classes/mediaSource/CamSource';
-import VideoSource from '@/classes/mediaSource/VideoSource';
+import Virtual from '@/classes/mediaSource/Virtual';
+import Cam from '@/classes/mediaSource/Cam';
+import Video from '@/classes/mediaSource/Video';
+import SourceToCanvas from '@/classes/mediaSource/SourceToCanvas';
+import SineAudio from '@/classes/mediaSource/SineAudio';
+import TestImage from '@/classes/mediaSource/TestImage';
 
 export default class MediaSource {
   constructor() {
@@ -9,19 +12,20 @@ export default class MediaSource {
 
   cam () {
     this.clean();
-    this.source = new CamSource();
+    this.source = new Cam();
     return this.source;
   }
 
   video (url = '/video/test.mp4') {
     this.clean();
-    this.source = new VideoSource(url);
+
+    this.source = new SourceToCanvas(new Video(url));
     return this.source;
   }
 
   test () {
     this.clean();
-    this.source = new TestScreen();
+    this.source = new Virtual(new TestImage(), new SineAudio());
     return this.source;
   }
 

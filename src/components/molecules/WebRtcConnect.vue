@@ -88,8 +88,7 @@ export default {
 
   async mounted () {
     console.log('MOUNTED');
-    // this.connect(this.mediaSource.video());
-    this.connect();
+    this.connect(this.mediaSource.cam());
   },
 
   destroyed () {
@@ -111,7 +110,7 @@ export default {
 
       fromEvent(this.connection, 'open').subscribe((/*peer*/) => {
         this.connected = true;
-        this.connection.addStream(this.mediaSource.cam());
+        // this.connection.addStream(this.mediaSource.cam());
         // fromEvent(peer, 'data').subscribe(([
         //   data
         // ]) => {

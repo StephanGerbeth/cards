@@ -17,16 +17,15 @@ export default class Connection extends EventEmitter {
     this.entry = null;
     this.subscriptions = [];
     this.localStream = null;
-    this.mute = false;
+    this.audio = true;
   }
 
   async open (stream = new Promise((resolve) => resolve(null))) {
-    this.localStream = await stream;
+    this.localStream = stream;
     this.database = await loadDatabase();
     this.entry = await this.database.get(this.key);
     this.emit('key', this.entry.key);
-
-    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: this.localStream } });
+    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: await this.localStream.getStream() } });
     detectStream(this.peer, this.emit.bind(this)),
       this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
     await detectConnect(this.peer, this.emit.bind(this));
@@ -43,14 +42,13 @@ export default class Connection extends EventEmitter {
   async addStream (stream) {
     console.log('-> connection: add local stream');
     this.localStream = stream;
-    this.mute = false;
-    updateStream(this.peer, await this.localStream.mute(this.mute));
+    updateStream(this.peer, await this.localStream.getStream(this.audio));
   }
 
   async muteStream () {
     console.log('-> connection: mute local stream');
-    this.mute = !this.mute;
-    updateStream(this.peer, await this.localStream.mute(this.mute));
+    this.audio = !this.audio;
+    updateStream(this.peer, await this.localStream.getStream(this.audio));
   }
 
   close () {
