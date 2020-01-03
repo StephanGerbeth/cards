@@ -20,14 +20,16 @@ export default class Connection extends EventEmitter {
     this.audio = true;
   }
 
-  async open (stream = new Promise((resolve) => resolve(null))) {
-    this.localStream = stream;
+  async open (localStream = new Promise((resolve) => resolve(null))) {
+    this.localStream = localStream;
     this.database = await loadDatabase();
     this.entry = await this.database.get(this.key);
     this.emit('key', this.entry.key);
-    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: await this.localStream.getStream() } });
-    detectStream(this.peer, this.emit.bind(this)),
-      this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
+    const stream = await this.localStream.getStream(this.audio);
+    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: stream } });
+    this.emit('stream:change', getCapabilitiesOfStream(stream));
+    detectStream(this.peer, this.emit.bind(this));
+    this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
     await detectConnect(this.peer, this.emit.bind(this));
     console.log('-> connection: open');
 
@@ -35,20 +37,32 @@ export default class Connection extends EventEmitter {
     this.cleanup();
     this.emit('close', this.peer);
     if (!this.key) {
-      this.open(stream);
+      this.open(localStream);
     }
   }
 
   async addStream (stream) {
     console.log('-> connection: add local stream');
     this.localStream = stream;
-    updateStream(this.peer, await this.localStream.getStream(this.audio));
+    this.updateStream(this.localStream, this.audio);
   }
 
   async muteStream () {
     console.log('-> connection: mute local stream');
-    this.audio = !this.audio;
-    updateStream(this.peer, await this.localStream.getStream(this.audio));
+    this.updateStream(this.localStream, !this.audio);
+  }
+
+  async updateStream (mediaStream, audio) {
+    console.log('-> connetion: update local stream');
+    this.audio = audio;
+    const stream = await mediaStream.getStream(this.audio);
+    this.peer.addStreams({
+      stream: stream.getTracks().reduce((result, track) => {
+        result[String(track.kind)] = { track };
+        return result;
+      }, {})
+    });
+    this.emit('stream:change', getCapabilitiesOfStream(stream));
   }
 
   close () {
@@ -74,16 +88,6 @@ export default class Connection extends EventEmitter {
     this.database.destroy();
     this.database = null;
   }
-}
-
-function updateStream (peer, stream) {
-  console.log('-> connetion: update local stream');
-  peer.addStreams({
-    stream: stream.getTracks().reduce((result, track) => {
-      result[String(track.kind)] = { track };
-      return result;
-    }, {})
-  });
 }
 
 function observeSignal (peer, entry) {
@@ -134,6 +138,12 @@ function detect (obj, type) {
   return fromEvent(obj, type)
     .pipe(take(1))
     .toPromise();
+}
+
+function getCapabilitiesOfStream (stream) {
+  return stream.getTracks().map((track) => {
+    return track.getCapabilities();
+  });
 }
 
 async function loadDatabase () {

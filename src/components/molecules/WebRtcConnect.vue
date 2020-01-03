@@ -49,6 +49,17 @@
     <button @click="mute">
       Mute
     </button>
+    <select>
+      <option
+        v-for="(capability, index) in availableCapabilities"
+        :key="index"
+        :disabled="isCurrentCapability(capability)"
+        :value="capability.deviceId"
+        @change="switchCam"
+      >
+        {{ capability.label }}
+      </option>
+    </select>
   </div>
 </template>
 
@@ -70,7 +81,9 @@ export default {
       generatedKey: null,
       connection: null,
       connected: false,
-      loading: false
+      loading: false,
+      availableCapabilities: [],
+      currentCapabilities: []
     };
   },
 
@@ -88,7 +101,10 @@ export default {
 
   async mounted () {
     console.log('MOUNTED');
-    this.connect(this.mediaSource.cam());
+    const cam = this.mediaSource.cam();
+    this.availableCapabilities = await cam.getAvailableCapabilities();
+
+    this.connect(cam);
   },
 
   destroyed () {
@@ -106,6 +122,11 @@ export default {
       fromEvent(this.connection, 'stream').subscribe(async (stream) => {
         console.log('-> controller: add remote stream', stream.getTracks());
         this.srcObject = stream;
+      });
+
+      fromEvent(this.connection, 'stream:change').subscribe(async (capabilities) => {
+        console.log('-> controller: change local stream');
+        this.currentCapabilities = capabilities;
       });
 
       fromEvent(this.connection, 'open').subscribe((/*peer*/) => {
@@ -147,6 +168,14 @@ export default {
 
     mute () {
       this.connection.muteStream();
+    },
+
+    switchCam (e) {
+      console.log('SWITCH', e);
+    },
+
+    isCurrentCapability (capability) {
+      return this.currentCapabilities.filter((c) => c.deviceId === capability.deviceId).length > 0;
     }
   }
 };
