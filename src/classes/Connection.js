@@ -2,6 +2,7 @@ import FastRTCPeer from '@mattkrick/fast-rtc-peer';
 import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
 import EventEmitter from 'eventemitter3';
+import MediaSource from '@/classes/MediaSource';
 // import { Subject } from '@@/node_modules/rxjs/index';
 
 const DESCRIPTION = [
@@ -18,21 +19,22 @@ export default class Connection extends EventEmitter {
     this.peer = null;
     this.entry = null;
     this.subscriptions = [];
-    this.localStream = null;
+    this.mediaSource = new MediaSource();
     this.audio = true;
     // this.key = new Subject();
   }
 
-  async open (localStream = new Promise((resolve) => resolve(null))) {
-    this.localStream = localStream;
+  async open (source = new Promise((resolve) => resolve(null))) {
+    this.mediaSource.setSource(source);
     this.database = await loadDatabase('handshake');
     console.log('-> connection: key', this.key);
     this.entry = await this.database.get(this.key);
     publishInfo(this.entry.key, this.info, !this.key, this.emit.bind(this));
     console.log('-> connection: entry key', this.entry.key);
-    // this.key.next(this.entry.key);
     this.emit('key', this.entry.key);
-    const stream = await this.localStream.getStream(this.audio);
+    // this.key.next(this.entry.key);
+
+    const stream = await this.mediaSource.getStream(this.audio);
     this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: stream } });
     console.log('-> connection: update capabilities');
     this.emit('stream:change', getCapabilitiesOfStream(stream));
@@ -48,29 +50,25 @@ export default class Connection extends EventEmitter {
     this.cleanup();
     this.emit('close', this.peer);
     if (!this.key) {
-      this.open(localStream);
+      this.open(source);
     }
   }
 
-  send (type, data) {
-    this.peer.send(JSON.stringify({ type, data }));
-  }
-
-  async addStream (stream) {
+  async addSource (source) {
     console.log('-> connection: add local stream');
-    this.localStream = stream;
-    this.updateStream(this.localStream, this.audio);
+    this.mediaSource.setSource(source);
+    this.updateStream(this.audio);
   }
 
-  async muteStream () {
+  async mute () {
     console.log('-> connection: mute local stream');
-    this.updateStream(this.localStream, !this.audio);
+    this.updateStream(!this.audio);
   }
 
-  async updateStream (mediaStream, audio) {
+  async updateStream (audio) {
     console.log('-> connetion: update local stream');
     this.audio = audio;
-    const stream = await mediaStream.getStream(this.audio);
+    const stream = await this.mediaSource.getStream(this.audio);
     this.peer.addStreams({
       stream: stream.getTracks().reduce((result, track) => {
         result[String(track.kind)] = { track };
@@ -78,6 +76,10 @@ export default class Connection extends EventEmitter {
       }, {})
     });
     this.emit('stream:change', getCapabilitiesOfStream(stream));
+  }
+
+  send (type, data) {
+    this.peer.send(JSON.stringify({ type, data }));
   }
 
   close () {
@@ -100,6 +102,8 @@ export default class Connection extends EventEmitter {
   destroy () {
     console.log('-> connection: destroy');
     this.close();
+    this.mediaSource.destroy();
+    this.mediaSource = null;
     this.database.destroy();
     this.database = null;
   }

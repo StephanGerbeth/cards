@@ -1,8 +1,5 @@
-import Base from '@/classes/mediaSource/Base';
-
-export default class VirtualSource extends Base {
+export default class VirtualSource {
   constructor(...sources) {
-    super();
     this.sources = sources;
   }
 
@@ -12,11 +9,10 @@ export default class VirtualSource extends Base {
       const tracks = (await source.getStream(audio)).getTracks();
       return result.concat(tracks);
     }, Promise.resolve([]));
-    return super.prepareStream(new MediaStream(tracks), audio);
+    return new MediaStream(tracks);
   }
 
   destroy () {
-    super.destroy();
     this.sources.map((source) => {
       source.destroy();
       return null;

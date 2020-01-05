@@ -67,10 +67,15 @@
 <script>
 // :disabled="isCurrentCapability(capability)"
 import Connection from '@/classes/Connection';
-import MediaSource from '@/classes/MediaSource';
 import QrCode from '@/components/atoms/QrCode';
 import { fromEvent } from 'rxjs';
 import DetectRTC from 'detectrtc';
+import Virtual from '@/classes/mediaSource/Virtual';
+import Cam from '@/classes/mediaSource/Cam';
+import Video from '@/classes/mediaSource/Video';
+import SourceToCanvas from '@/classes/mediaSource/SourceToCanvas';
+import SineAudio from '@/classes/mediaSource/SineAudio';
+import TestImage from '@/classes/mediaSource/TestImage';
 
 export default {
   components: {
@@ -79,7 +84,6 @@ export default {
 
   data () {
     return {
-      mediaSource: new MediaSource(),
       srcObject: null,
       generatedKey: null,
       connection: null,
@@ -105,7 +109,7 @@ export default {
   async mounted () {
     console.log('MOUNTED');
 
-    const cam = this.mediaSource.cam();
+    const cam = new Cam();
     this.availableCapabilities = await cam.getAvailableCapabilities();
     console.log(this.availableCapabilities);
 
@@ -119,7 +123,7 @@ export default {
   },
 
   methods: {
-    async connect (mediaStream, support) {
+    async connect (mediaSource, support) {
       this.connection = new Connection(this.key, support);
       // this.connection.key.subsribe(() => {
 
@@ -161,7 +165,7 @@ export default {
         this.connected = false;
       });
 
-      this.connection.open(mediaStream);
+      this.connection.open(mediaSource);
     },
 
     disconnect () {
@@ -169,19 +173,19 @@ export default {
     },
 
     async showCamSource () {
-      this.connection.addStream(this.mediaSource.cam());
+      this.connection.addSource(new Cam());
     },
 
     async showVideoSource () {
-      this.connection.addStream(this.mediaSource.video());
+      this.connection.addSource(new SourceToCanvas(new Video('/video/test.mp4')));
     },
 
     async showTestScreen () {
-      this.connection.addStream(this.mediaSource.test());
+      this.connection.addSource(new Virtual(new TestImage(), new SineAudio()));
     },
 
     mute () {
-      this.connection.muteStream();
+      this.connection.mute();
     },
 
     switchCam (e) {
@@ -203,7 +207,7 @@ export default {
         }
       };
       console.log('-> controller: constraints', constraints);
-      this.connection.addStream(this.mediaSource.cam(constraints));
+      this.connection.addSource(new Cam(constraints));
     },
 
     isCurrentCapability (capability) {

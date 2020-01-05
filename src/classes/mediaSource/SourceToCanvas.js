@@ -1,8 +1,5 @@
-import Base from '@/classes/mediaSource/Base';
-
-export default class VideoCanvas extends Base {
+export default class VideoCanvas {
   constructor(source) {
-    super();
     this.source = source;
     this.el = document.createElement('canvas');
     this.context = this.el.getContext('2d');
@@ -11,14 +8,13 @@ export default class VideoCanvas extends Base {
   }
 
   async getStream (audio = true) {
-    return super.prepareStream(new MediaStream([
+    return new MediaStream([
       ...(await this.source.getStream(audio)).getAudioTracks(),
       ...this.el.captureStream().getVideoTracks()
-    ]), audio);
+    ]);
   }
 
   destroy () {
-    super.destroy();
     global.cancelAnimationFrame(this.animationFrameId);
     this.source.destroy();
     this.source = null;

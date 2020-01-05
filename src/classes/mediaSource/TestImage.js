@@ -2,27 +2,27 @@ import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
 import testPattern from '@/assets/svg/test-pattern.svg';
 import { cover } from '@/utils/object-fit';
-import Base from '@/classes/mediaSource/Base';
 
-export default class TestImageSource extends Base {
+export default class TestImageSource {
   constructor() {
-    super();
     this.el = document.createElement('canvas');
     this.context = this.el.getContext('2d');
     this.image = null;
     this.animationFrameId = null;
-    this.count = 0;
 
     setup.bind(this)();
   }
 
-  async getStream (audio) {
-    return super.prepareStream(this.el.captureStream(), audio);
+  async getStream () {
+    return this.el.captureStream();
   }
 
   destroy () {
-    super.destroy();
     global.cancelAnimationFrame(this.animationFrameId);
+    this.el = null;
+    this.context = null;
+    this.image = null;
+    this.animationFrameId = null;
   }
 }
 

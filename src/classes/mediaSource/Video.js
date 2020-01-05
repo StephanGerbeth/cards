@@ -1,10 +1,8 @@
 import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
-import Base from '@/classes/mediaSource/Base';
 
-export default class VideoSource extends Base {
+export default class VideoSource {
   constructor(url) {
-    super();
     this.url = url;
     this.el = document.createElement('video');
     this.el.muted = true;
@@ -13,13 +11,12 @@ export default class VideoSource extends Base {
     this.load = loadVideo(this.el, this.url);
   }
 
-  async getStream (audio = true) {
+  async getStream () {
     await this.load;
-    return super.prepareStream(this.el.captureStream(), audio);
+    return this.el.captureStream();
   }
 
   destroy () {
-    super.destroy();
     this.el.pause();
     this.el.removeAttribute('src'); // empty source
     this.el.load();

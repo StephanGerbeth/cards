@@ -1,23 +1,21 @@
-import Base from '@/classes/mediaSource/Base';
-
-export default class SineAudioSource extends Base {
+export default class SineAudioSource {
   constructor() {
-    super();
     const AudioContext = global.AudioContext || global.webkitAudioContext;
     this.audioContext = new AudioContext();
+    this.oscillator = null;
   }
 
-  async getStream (audio = true) {
+  async getStream () {
     this.oscillator = this.audioContext.createOscillator();
     this.oscillator.type = 'sine';
     this.oscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
     const destination = this.oscillator.connect(this.audioContext.createMediaStreamDestination());
     this.oscillator.start();
-    return super.prepareStream(destination.stream, audio);
+    return destination.stream;
   }
 
   destroy () {
-    super.destroy();
+    console.log('OSCILLATOR', this.oscillator);
     this.oscillator.stop();
     this.oscillator = null;
     this.audioContext = null;

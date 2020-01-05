@@ -1,14 +1,11 @@
-import Base from '@/classes/mediaSource/Base';
-
-export default class CamSource extends Base {
+export default class CamSource {
   constructor(constraints = { video: true, audio: true }) {
-    super();
     this.constraints = constraints;
   }
 
   async getStream (audio = true) {
     this.constraints.audio = audio;
-    return super.prepareStream(await getUserMedia(this.constraints), true);
+    return await getUserMedia(this.constraints);
   }
 
   async getAvailableCapabilities () {
@@ -17,6 +14,10 @@ export default class CamSource extends Base {
     return devices.filter((device) => {
       return device.kind === 'videoinput';
     });
+  }
+
+  destroy () {
+    this.constraints = null;
   }
 }
 
