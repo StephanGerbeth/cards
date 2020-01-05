@@ -26,8 +26,22 @@ export default {
     };
   },
 
+  watch: {
+    'url': {
+      handler () {
+        this.createQRCode();
+      }
+    }
+  },
+
   async mounted () {
-    this.qrCodeUrl = await QRCode.toDataURL(this.url, { errorCorrectionLevel: 'L' });
+    this.createQRCode();
+  },
+
+  methods: {
+    async createQRCode () {
+      this.qrCodeUrl = await QRCode.toDataURL(this.url, { errorCorrectionLevel: 'L' });
+    }
   }
 };
 </script>

@@ -148,7 +148,7 @@ module.exports = {
     '@/modules/fix/image',
     '@/modules/svg',
     '@/modules/image',
-    '@/modules/analyzer',
+    // '@/modules/analyzer',
     '@nuxtjs/axios',
     [
       '@bazzite/nuxt-optimized-images', {

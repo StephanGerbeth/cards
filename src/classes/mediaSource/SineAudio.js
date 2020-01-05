@@ -3,6 +3,7 @@ import Base from '@/classes/mediaSource/Base';
 export default class SineAudioSource extends Base {
   constructor() {
     super();
+    const AudioContext = global.AudioContext || global.webkitAudioContext;
     this.audioContext = new AudioContext();
   }
 

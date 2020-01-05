@@ -49,13 +49,14 @@
     <button @click="mute">
       Mute
     </button>
-    <select>
+    <select @change="switchCam">
+      <option value="">
+        default
+      </option>
       <option
         v-for="(capability, index) in availableCapabilities"
         :key="index"
-        :disabled="isCurrentCapability(capability)"
         :value="capability.deviceId"
-        @change="switchCam"
       >
         {{ capability.label }}
       </option>
@@ -64,10 +65,12 @@
 </template>
 
 <script>
+// :disabled="isCurrentCapability(capability)"
 import Connection from '@/classes/Connection';
 import MediaSource from '@/classes/MediaSource';
 import QrCode from '@/components/atoms/QrCode';
 import { fromEvent } from 'rxjs';
+import DetectRTC from 'detectrtc';
 
 export default {
   components: {
@@ -101,10 +104,14 @@ export default {
 
   async mounted () {
     console.log('MOUNTED');
+
     const cam = this.mediaSource.cam();
     this.availableCapabilities = await cam.getAvailableCapabilities();
+    console.log(this.availableCapabilities);
 
-    this.connect(cam);
+    DetectRTC.load(() => {
+      this.connect(cam, DetectRTC);
+    });
   },
 
   destroyed () {
@@ -112,11 +119,17 @@ export default {
   },
 
   methods: {
-    async connect (mediaStream) {
-      this.connection = new Connection(this.key);
+    async connect (mediaStream, support) {
+      this.connection = new Connection(this.key, support);
+      // this.connection.key.subsribe(() => {
 
+      // })
       fromEvent(this.connection, 'key').subscribe((key) => {
         this.generatedKey = key;
+      });
+
+      fromEvent(this.connection, 'remote:info').subscribe((info) => {
+        console.log('-> controller: remote info', info);
       });
 
       fromEvent(this.connection, 'stream').subscribe(async (stream) => {
@@ -131,6 +144,7 @@ export default {
 
       fromEvent(this.connection, 'open').subscribe((/*peer*/) => {
         this.connected = true;
+        // this.connection.send('useragent:remote', );
         // this.connection.addStream(this.mediaSource.cam());
         // fromEvent(peer, 'data').subscribe(([
         //   data
@@ -171,7 +185,25 @@ export default {
     },
 
     switchCam (e) {
-      console.log('SWITCH', e);
+      console.log('-> controller: switch to', e.target.value);
+      const constraints = {
+        video: {
+          deviceId: {
+            exact: e.target.value
+          }
+        }, audio: {
+          autoGainControl: true,
+          channelCount: 2,
+          echoCancellation: true,
+          latency: 0,
+          noiseSuppression: true,
+          sampleRate: 48000,
+          sampleSize: 16,
+          volume: 1.0
+        }
+      };
+      console.log('-> controller: constraints', constraints);
+      this.connection.addStream(this.mediaSource.cam(constraints));
     },
 
     isCurrentCapability (capability) {

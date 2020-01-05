@@ -10,9 +10,9 @@ export default class MediaSource {
     this.source = null;
   }
 
-  cam () {
+  cam (constraints) {
     this.clean();
-    this.source = new Cam();
+    this.source = new Cam(constraints);
     return this.source;
   }
 
