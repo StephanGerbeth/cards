@@ -1,8 +1,6 @@
-import service from '../firebase';
-
 export default class Database {
-  constructor(name) {
-    this.entry = service.getDatabase(name);
+  constructor(entry) {
+    this.entry = entry;
   }
 
   add (data) {
@@ -19,10 +17,6 @@ export default class Database {
 
   update (key, data) {
     return this.entry.child(key).set(data);
-  }
-
-  getTimestamp () {
-    return service.getTimestamp();
   }
 
   destroy () {

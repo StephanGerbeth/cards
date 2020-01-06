@@ -57,29 +57,30 @@
         v-for="(capability, index) in availableCapabilities"
         :key="index"
         :value="capability.deviceId"
+        :disabled="isCurrentCapability(capability)"
       >
         {{ capability.label }}
       </option>
     </select>
+    <browserInfo :data="remoteBrowserInfo" />
   </div>
 </template>
 
 <script>
-// :disabled="isCurrentCapability(capability)"
 import Connection from '@/classes/Connection';
 import QrCode from '@/components/atoms/QrCode';
-import { fromEvent } from 'rxjs';
-import DetectRTC from 'detectrtc';
 import Virtual from '@/classes/mediaSource/Virtual';
 import Cam from '@/classes/mediaSource/Cam';
 import Video from '@/classes/mediaSource/Video';
 import SourceToCanvas from '@/classes/mediaSource/SourceToCanvas';
 import SineAudio from '@/classes/mediaSource/SineAudio';
 import TestImage from '@/classes/mediaSource/TestImage';
+import BrowserInfo from '@/components/organisms/BrowserInfo';
 
 export default {
   components: {
-    QrCode
+    QrCode,
+    BrowserInfo
   },
 
   data () {
@@ -90,7 +91,8 @@ export default {
       connected: false,
       loading: false,
       availableCapabilities: [],
-      currentCapabilities: []
+      currentCapabilities: [],
+      remoteBrowserInfo: {}
     };
   },
 
@@ -108,14 +110,11 @@ export default {
 
   async mounted () {
     console.log('MOUNTED');
-
     const cam = new Cam();
     this.availableCapabilities = await cam.getAvailableCapabilities();
     console.log(this.availableCapabilities);
 
-    DetectRTC.load(() => {
-      this.connect(cam, DetectRTC);
-    });
+    this.connect(cam);
   },
 
   destroyed () {
@@ -123,45 +122,33 @@ export default {
   },
 
   methods: {
-    async connect (mediaSource, support) {
-      this.connection = new Connection(this.key, support);
-      // this.connection.key.subsribe(() => {
+    async connect (mediaSource) {
+      this.connection = new Connection(this.key);
 
-      // })
-      fromEvent(this.connection, 'key').subscribe((key) => {
+      this.connection.subscribe('key', (key) => {
         this.generatedKey = key;
       });
 
-      fromEvent(this.connection, 'remote:info').subscribe((info) => {
+      this.connection.subscribe('info', (info) => {
         console.log('-> controller: remote info', info);
+        this.remoteBrowserInfo = info;
       });
 
-      fromEvent(this.connection, 'stream').subscribe(async (stream) => {
+      this.connection.subscribe('stream-remote', async (stream) => {
         console.log('-> controller: add remote stream', stream.getTracks());
         this.srcObject = stream;
       });
 
-      fromEvent(this.connection, 'stream:change').subscribe(async (capabilities) => {
+      this.connection.subscribe('stream-local', (capabilities) => {
         console.log('-> controller: change local stream');
         this.currentCapabilities = capabilities;
       });
 
-      fromEvent(this.connection, 'open').subscribe((/*peer*/) => {
+      this.connection.subscribe('open', () => {
         this.connected = true;
-        // this.connection.send('useragent:remote', );
-        // this.connection.addStream(this.mediaSource.cam());
-        // fromEvent(peer, 'data').subscribe(([
-        //   data
-        // ]) => {
-        //   console.log(data);
-        // });
-        // let count = 0;
-        // setInterval(() => {
-        //   peer.send(`hello ${count++}.`);
-        // }, 1000);
       });
 
-      fromEvent(this.connection, 'close').subscribe(() => {
+      this.connection.subscribe('close', () => {
         this.connected = false;
       });
 
@@ -169,11 +156,11 @@ export default {
     },
 
     disconnect () {
-      this.connection.destroy();
+      this.connection.close();
     },
 
     async showCamSource () {
-      this.connection.addSource(new Cam());
+      this.connection.addSource(new SourceToCanvas(new Cam()));
     },
 
     async showVideoSource () {

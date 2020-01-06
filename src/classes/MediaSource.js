@@ -20,7 +20,6 @@ export default class MediaSource {
   }
 
   reset (newSource = null) {
-    console.log('destroy source');
     stopStream(this.stream);
     this.stream = null;
     destroySource(this.source);

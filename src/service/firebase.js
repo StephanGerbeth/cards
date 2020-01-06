@@ -1,6 +1,8 @@
 import firebase from 'firebase/app';
 import 'firebase/database';
+import Database from '@/service/firebase/Database';
 
+const databases = new Map();
 class App {
   constructor() {
     this.app = null;
@@ -23,7 +25,10 @@ class App {
   }
 
   getDatabase (name) {
-    return firebase.database(this.getApp()).ref(name);
+    if (!databases.has(name)) {
+      databases.set(name, new Database(firebase.database(this.getApp()).ref(name)));
+    }
+    return databases.get(name);
   }
 
   getTimestamp () {

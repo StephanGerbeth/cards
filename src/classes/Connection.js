@@ -1,55 +1,71 @@
 import FastRTCPeer from '@mattkrick/fast-rtc-peer';
-import { fromEvent } from 'rxjs';
+import { fromEvent, Subject } from 'rxjs';
 import { take } from 'rxjs/operators';
-import EventEmitter from 'eventemitter3';
+import BrowserInfo from '@/classes/BrowserInfo';
 import MediaSource from '@/classes/MediaSource';
-// import { Subject } from '@@/node_modules/rxjs/index';
 
 const DESCRIPTION = [
   'answer', 'offer'
 ];
 
-export default class Connection extends EventEmitter {
-  constructor(key, info) {
-    super();
+export default class Connection {
+  constructor(key) {
     console.log('--- NEW WEBRTC CLIENT ---');
     this.key = key;
-    this.info = info;
-    this.database = null;
     this.peer = null;
     this.entry = null;
-    this.subscriptions = [];
+    this.subscriptions = { initial: [], default: [] };
     this.mediaSource = new MediaSource();
+    this.browserInfo = new BrowserInfo();
     this.audio = true;
-    // this.key = new Subject();
+    this.subjects = {
+      key: new Subject(),
+      info: new Subject(),
+      streamLocal: new Subject(),
+      streamRemote: new Subject(),
+      open: new Subject(),
+      close: new Subject()
+    };
   }
 
-  async open (source = new Promise((resolve) => resolve(null))) {
+  async open (source = { getStream: () => new Promise((resolve) => resolve(null)) }) {
     this.mediaSource.setSource(source);
-    this.database = await loadDatabase('handshake');
-    console.log('-> connection: key', this.key);
-    this.entry = await this.database.get(this.key);
-    publishInfo(this.entry.key, this.info, !this.key, this.emit.bind(this));
+    this.entry = (await import('@/service/firebase')).default.getDatabase('handshake').get(this.key);
+
+    this.subjects.key.next(this.entry.key);
     console.log('-> connection: entry key', this.entry.key);
-    this.emit('key', this.entry.key);
-    // this.key.next(this.entry.key);
+
+    this.subscriptions.initial = this.subscriptions.initial.concat([
+      await this.browserInfo.exchange(this.entry.key, !this.key, this.subjects.info)
+    ]);
+    console.log('-> connection: remote browser info');
 
     const stream = await this.mediaSource.getStream(this.audio);
+
     this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: stream } });
     console.log('-> connection: update capabilities');
-    this.emit('stream:change', getCapabilitiesOfStream(stream));
+
+    this.subjects.streamLocal.next(getCapabilitiesOfStream(stream));
     console.log('-> connection: subsribe to stream update');
-    detectStream(this.peer, this.emit.bind(this));
+
+    detectStream(this.peer, this.subjects.streamRemote);
     console.log('-> connection: add subscriptions');
-    this.subscriptions = this.subscriptions.concat(observeSignal(this.peer, this.entry));
+
+    this.subscriptions.initial = this.subscriptions.initial.concat(observeSignal(this.peer, this.entry));
     console.log('-> connection: subscribe to open event');
-    await detectConnect(this.peer, this.emit.bind(this));
+
+    const open = await detectConnect(this.peer);
+    this.subjects.open.next(open);
     console.log('-> connection: open');
 
     await detectDisconnect(this.peer);
+    console.log('-> connection: close');
+
     this.cleanup();
-    this.emit('close', this.peer);
+    this.subjects.close.next(this.peer);
+
     if (!this.key) {
+      console.log('-> connection: reinitialize connection');
       this.open(source);
     }
   }
@@ -75,23 +91,33 @@ export default class Connection extends EventEmitter {
         return result;
       }, {})
     });
-    this.emit('stream:change', getCapabilitiesOfStream(stream));
+    this.subjects.streamLocal.next(getCapabilitiesOfStream(stream));
+  }
+
+  subscribe (type, fn) {
+    console.log('-> connection: subscribe to', type);
+    type = type.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
+    const subscription = this.subjects[String(type)].subscribe(fn);
+    this.subscriptions.default.push(subscription);
+    return subscription;
   }
 
   send (type, data) {
+    console.log('-> connection: send message');
     this.peer.send(JSON.stringify({ type, data }));
   }
 
   close () {
     console.log('-> connection: close');
     this.peer.close();
+    this.mediaSource.reset();
   }
 
   cleanup () {
     console.log('-> connection: cleanup');
     this.peer.close();
     this.peer = null;
-    this.subscriptions.reduce((result, subscription) => {
+    this.subscriptions.initial = this.subscriptions.initial.reduce((result, subscription) => {
       subscription.unsubscribe();
       return result;
     }, []);
@@ -102,31 +128,13 @@ export default class Connection extends EventEmitter {
   destroy () {
     console.log('-> connection: destroy');
     this.close();
+    this.browserInfo.destroy();
     this.mediaSource.destroy();
-    this.mediaSource = null;
-    this.database.destroy();
-    this.database = null;
+    this.subscriptions.default = this.subscriptions.default.reduce((result, subscription) => {
+      subscription.unsubscribe();
+      return result;
+    }, []);
   }
-}
-
-async function publishInfo (key, info, master, emit) {
-  info.isMaster = master;
-  const database = await loadDatabase('info');
-  const entry = database.get(key);
-  const str = JSON.stringify(info);
-  entry.push(str);
-  const subscription = fromEvent(entry, 'child_added')
-    .subscribe(([
-      snapshot
-    ]) => {
-      const result = snapshot.val();
-      if (result !== str) {
-        emit('remote:info', JSON.parse(result));
-        subscription.unsubscribe();
-        snapshot.ref.remove();
-        database.destroy();
-      }
-    });
 }
 
 function observeSignal (peer, entry) {
@@ -151,18 +159,16 @@ function processSignal (peer, snapshot) {
   peer.dispatch(snapshot.val());
 }
 
-async function detectConnect (peer, emit) {
-  const p = await detect(peer, 'open');
-  emit('open', p);
-  return p;
+async function detectConnect (peer) {
+  return await detect(peer, 'open');
 }
 
-async function detectStream (peer, emit) {
+async function detectStream (peer, subject) {
   const [
     stream
   ] = await detect(peer, 'stream');
   console.log('-> connection: got remote stream');
-  emit('stream', stream);
+  subject.next(stream);
   return stream;
 }
 
@@ -183,9 +189,4 @@ function getCapabilitiesOfStream (stream) {
   return stream.getTracks().map((track) => {
     return track.getCapabilities();
   });
-}
-
-async function loadDatabase (name) {
-  const { default: Database } = await import('@/service/firebase/database');
-  return new Database(name);
 }

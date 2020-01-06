@@ -17,7 +17,7 @@ export default class CamSource {
   }
 
   destroy () {
-    this.constraints = null;
+    // this.constraints = null;
   }
 }
 
