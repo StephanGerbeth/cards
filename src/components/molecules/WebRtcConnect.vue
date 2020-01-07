@@ -49,12 +49,13 @@
     <button @click="mute">
       Mute
     </button>
-    <select @change="switchCam">
+    <strong>Local Video</strong>
+    <select @change="switchCamLocal">
       <option value="">
         default
       </option>
       <option
-        v-for="(capability, index) in availableCapabilities"
+        v-for="(capability, index) in availableCapabilitiesLocal"
         :key="index"
         :value="capability.deviceId"
         :disabled="isCurrentCapability(capability)"
@@ -90,8 +91,8 @@ export default {
       connection: null,
       connected: false,
       loading: false,
-      availableCapabilities: [],
-      currentCapabilities: [],
+      availableCapabilitiesLocal: [],
+      currentCapabilitiesLocal: [],
       remoteBrowserInfo: {}
     };
   },
@@ -111,8 +112,8 @@ export default {
   async mounted () {
     console.log('MOUNTED');
     const cam = new Cam();
-    this.availableCapabilities = await cam.getAvailableCapabilities();
-    console.log(this.availableCapabilities);
+    this.availableCapabilitiesLocal = await cam.getAvailableCapabilities();
+    console.log(this.availableCapabilitiesLocal);
 
     this.connect(cam);
   },
@@ -123,7 +124,7 @@ export default {
 
   methods: {
     async connect (mediaSource) {
-      this.connection = new Connection(this.key);
+      this.connection = new Connection();
 
       this.connection.subscribe('key', (key) => {
         this.generatedKey = key;
@@ -141,7 +142,7 @@ export default {
 
       this.connection.subscribe('stream-local', (capabilities) => {
         console.log('-> controller: change local stream');
-        this.currentCapabilities = capabilities;
+        this.currentCapabilitiesLocal = capabilities;
       });
 
       this.connection.subscribe('open', () => {
@@ -152,7 +153,7 @@ export default {
         this.connected = false;
       });
 
-      this.connection.open(mediaSource);
+      this.connection.open(mediaSource, this.key);
     },
 
     disconnect () {
@@ -175,7 +176,7 @@ export default {
       this.connection.mute();
     },
 
-    switchCam (e) {
+    switchCamLocal (e) {
       console.log('-> controller: switch to', e.target.value);
       const constraints = {
         video: {
@@ -193,12 +194,12 @@ export default {
           volume: 1.0
         }
       };
-      console.log('-> controller: constraints', constraints);
+      console.log('-> controller: constraints local', constraints);
       this.connection.addSource(new Cam(constraints));
     },
 
     isCurrentCapability (capability) {
-      return this.currentCapabilities.filter((c) => c.deviceId === capability.deviceId).length > 0;
+      return this.currentCapabilitiesLocal.filter((c) => c.deviceId === capability.deviceId).length > 0;
     }
   }
 };

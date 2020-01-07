@@ -9,9 +9,8 @@ const DESCRIPTION = [
 ];
 
 export default class Connection {
-  constructor(key) {
+  constructor() {
     console.log('--- NEW WEBRTC CLIENT ---');
-    this.key = key;
     this.peer = null;
     this.entry = null;
     this.subscriptions = { initial: [], default: [] };
@@ -28,21 +27,21 @@ export default class Connection {
     };
   }
 
-  async open (source = { getStream: () => new Promise((resolve) => resolve(null)) }) {
+  async open (source = { getStream: () => new Promise((resolve) => resolve(null)) }, key = null) {
     this.mediaSource.setSource(source);
-    this.entry = (await import('@/service/firebase')).default.getDatabase('handshake').get(this.key);
+    this.entry = (await import('@/service/firebase')).default.getDatabase('handshake').get(key);
 
     this.subjects.key.next(this.entry.key);
     console.log('-> connection: entry key', this.entry.key);
 
     this.subscriptions.initial = this.subscriptions.initial.concat([
-      await this.browserInfo.exchange(this.entry.key, !this.key, this.subjects.info)
+      await this.browserInfo.exchange(this.entry.key, !key, this.subjects.info)
     ]);
     console.log('-> connection: remote browser info');
 
     const stream = await this.mediaSource.getStream(this.audio);
 
-    this.peer = new FastRTCPeer({ isOfferer: !!this.key, streams: { mediaStream: stream } });
+    this.peer = new FastRTCPeer({ isOfferer: !!key, streams: { mediaStream: stream } });
     console.log('-> connection: update capabilities');
 
     this.subjects.streamLocal.next(getCapabilitiesOfStream(stream));
@@ -64,26 +63,26 @@ export default class Connection {
     this.cleanup();
     this.subjects.close.next(this.peer);
 
-    if (!this.key) {
+    if (!key) {
       console.log('-> connection: reinitialize connection');
-      this.open(source);
+      this.open(source, key);
     }
   }
 
   async addSource (source) {
     console.log('-> connection: add local stream');
     this.mediaSource.setSource(source);
-    this.updateStream(this.audio);
+    this.updateStream();
   }
 
   async mute () {
     console.log('-> connection: mute local stream');
-    this.updateStream(!this.audio);
+    this.audio = !this.audio;
+    this.updateStream();
   }
 
-  async updateStream (audio) {
+  async updateStream () {
     console.log('-> connetion: update local stream');
-    this.audio = audio;
     const stream = await this.mediaSource.getStream(this.audio);
     this.peer.addStreams({
       stream: stream.getTracks().reduce((result, track) => {
