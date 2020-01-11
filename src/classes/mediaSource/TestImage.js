@@ -2,37 +2,36 @@ import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
 import testPattern from '@/assets/svg/test-pattern.svg';
 import { cover } from '@/utils/object-fit';
+import { loopByFPS } from '@/utils/animationFrame';
 
 export default class TestImageSource {
   constructor() {
     this.el = document.createElement('canvas');
     this.context = this.el.getContext('2d');
     this.image = null;
-    this.animationFrameId = null;
 
     setup.bind(this)();
   }
 
   async getStream () {
-    return this.el.captureStream();
+    return this.el.captureStream(10);
   }
 
   destroy () {
-    global.cancelAnimationFrame(this.animationFrameId);
+    this.loop.stop();
     this.el = null;
     this.context = null;
     this.image = null;
-    this.animationFrameId = null;
   }
 }
 
 async function setup () {
   this.image = await loadImage();
-  this.animationFrameId = global.requestAnimationFrame(update.bind(this));
+  this.loop = loopByFPS(10, update.bind(this));
+  this.loop.start();
 }
 
 function update () {
-  this.animationFrameId = global.requestAnimationFrame(update.bind(this));
   this.el.width = this.image.width;
   this.el.height = this.image.height;
 

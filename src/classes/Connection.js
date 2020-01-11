@@ -1,41 +1,43 @@
 import FastRTCPeer from '@mattkrick/fast-rtc-peer';
-import { fromEvent, Subject } from 'rxjs';
+import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
 import BrowserInfo from '@/classes/BrowserInfo';
 import MediaSource from '@/classes/MediaSource';
+import SubjectHandler from '@/classes/SubjectHandler';
+import DataHandler from '@/classes/DataHandler';
 
 const DESCRIPTION = [
   'answer', 'offer'
 ];
 
 export default class Connection {
+
   constructor() {
     console.log('--- NEW WEBRTC CLIENT ---');
     this.peer = null;
     this.entry = null;
-    this.subscriptions = { initial: [], default: [] };
-    this.mediaSource = new MediaSource();
-    this.browserInfo = new BrowserInfo();
+    this.subscriptions = { database: [] };
+
     this.audio = true;
-    this.subjects = {
-      key: new Subject(),
-      info: new Subject(),
-      streamLocal: new Subject(),
-      streamRemote: new Subject(),
-      open: new Subject(),
-      close: new Subject()
-    };
+
+    this.mediaSource = new MediaSource();
+
+    this.setup = new SubjectHandler('key');
+    this.state = new SubjectHandler('open', 'close');
+    this.browser = new SubjectHandler('local', 'remote');
+    this.stream = new SubjectHandler('local', 'remote');
+    this.data = new DataHandler();
   }
 
   async open (source = { getStream: () => new Promise((resolve) => resolve(null)) }, key = null) {
     this.mediaSource.setSource(source);
     this.entry = (await import('@/service/firebase')).default.getDatabase('handshake').get(key);
 
-    this.subjects.key.next(this.entry.key);
+    this.setup.get('key').next(this.entry.key);
     console.log('-> connection: entry key', this.entry.key);
 
-    this.subscriptions.initial = this.subscriptions.initial.concat([
-      await this.browserInfo.exchange(this.entry.key, !key, this.subjects.info)
+    this.subscriptions.database = this.subscriptions.database.concat([
+      await new BrowserInfo().exchange(this.entry.key, !key, this.browser)
     ]);
     console.log('-> connection: remote browser info');
 
@@ -44,29 +46,26 @@ export default class Connection {
     this.peer = new FastRTCPeer({ isOfferer: !!key, streams: { mediaStream: stream } });
     console.log('-> connection: update capabilities');
 
-    this.subjects.streamLocal.next(getCapabilitiesOfStream(stream));
+    this.stream.get('local').next(getCapabilitiesOfStream(stream));
     console.log('-> connection: subsribe to stream update');
 
-    detectStream(this.peer, this.subjects.streamRemote);
+    detectStream(this.peer, this.stream.get('remote'));
     console.log('-> connection: add subscriptions');
 
-    this.subscriptions.initial = this.subscriptions.initial.concat(observeSignal(this.peer, this.entry));
+    this.subscriptions.database = this.subscriptions.database.concat(observeSignal(this.peer, this.entry));
     console.log('-> connection: subscribe to open event');
 
     const open = await detectConnect(this.peer);
-    this.subjects.open.next(open);
+    this.state.get('open').next(open);
     console.log('-> connection: open');
 
+    this.data.setup(this.peer);
+
     await detectDisconnect(this.peer);
-    console.log('-> connection: close');
+    console.log('-> connection: closed');
 
-    this.cleanup();
-    this.subjects.close.next(this.peer);
-
-    if (!key) {
-      console.log('-> connection: reinitialize connection');
-      this.open(source, key);
-    }
+    this.state.get('close').next(this.peer);
+    this.destroy();
   }
 
   async addSource (source) {
@@ -90,49 +89,28 @@ export default class Connection {
         return result;
       }, {})
     });
-    this.subjects.streamLocal.next(getCapabilitiesOfStream(stream));
-  }
-
-  subscribe (type, fn) {
-    console.log('-> connection: subscribe to', type);
-    type = type.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
-    const subscription = this.subjects[String(type)].subscribe(fn);
-    this.subscriptions.default.push(subscription);
-    return subscription;
-  }
-
-  send (type, data) {
-    console.log('-> connection: send message');
-    this.peer.send(JSON.stringify({ type, data }));
+    this.stream.get('local').next(getCapabilitiesOfStream(stream));
   }
 
   close () {
     console.log('-> connection: close');
     this.peer.close();
-    this.mediaSource.reset();
-  }
-
-  cleanup () {
-    console.log('-> connection: cleanup');
-    this.peer.close();
-    this.peer = null;
-    this.subscriptions.initial = this.subscriptions.initial.reduce((result, subscription) => {
-      subscription.unsubscribe();
-      return result;
-    }, []);
-    this.entry.remove();
-    this.entry = null;
   }
 
   destroy () {
     console.log('-> connection: destroy');
-    this.close();
-    this.browserInfo.destroy();
-    this.mediaSource.destroy();
-    this.subscriptions.default = this.subscriptions.default.reduce((result, subscription) => {
+    this.peer.close();
+    this.entry.remove();
+    this.subscriptions.database = this.subscriptions.database.reduce((result, subscription) => {
       subscription.unsubscribe();
       return result;
     }, []);
+    this.mediaSource.destroy();
+    this.setup.destroy();
+    this.state.destroy();
+    this.browser.destroy();
+    this.stream.destroy();
+    this.data.destroy();
   }
 }
 

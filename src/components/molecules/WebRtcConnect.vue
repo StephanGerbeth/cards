@@ -119,38 +119,63 @@ export default {
   },
 
   destroyed () {
-    this.connection.destroy();
+    try {
+      this.connection.destroy();
+    }
+    catch (e) { return; }
+    finally {
+      this.connection = null;
+    }
   },
 
   methods: {
     async connect (mediaSource) {
+      let interval = null;
       this.connection = new Connection();
 
-      this.connection.subscribe('key', (key) => {
+      this.connection.setup.get('key').subscribe((key) => {
         this.generatedKey = key;
       });
 
-      this.connection.subscribe('info', (info) => {
+      this.connection.state.get('open').subscribe(() => {
+        this.connected = true;
+
+        interval = setInterval(() => {
+          this.connection.data.get('test').publish({ text: 'hello world' });
+        }, 2000);
+      });
+
+      this.connection.browser.get('local').subscribe((info) => {
+        console.log('-> controller: local info', info);
+      });
+
+      this.connection.browser.get('remote').subscribe((info) => {
         console.log('-> controller: remote info', info);
         this.remoteBrowserInfo = info;
       });
 
-      this.connection.subscribe('stream-remote', async (stream) => {
-        console.log('-> controller: add remote stream', stream.getTracks());
-        this.srcObject = stream;
-      });
-
-      this.connection.subscribe('stream-local', (capabilities) => {
+      this.connection.stream.get('local').subscribe((capabilities) => {
         console.log('-> controller: change local stream');
         this.currentCapabilitiesLocal = capabilities;
       });
 
-      this.connection.subscribe('open', () => {
-        this.connected = true;
+      this.connection.stream.get('remote').subscribe(async (stream) => {
+        console.log('-> controller: add remote stream', stream.getTracks());
+        this.srcObject = stream;
       });
 
-      this.connection.subscribe('close', () => {
+      this.connection.data.get('test').subscribe((data) => {
+        console.log('-> controller: received data', data);
+      });
+
+      this.connection.state.get('close').subscribe(() => {
         this.connected = false;
+        clearInterval(interval);
+        this.connection = null;
+        console.log(this);
+        if (!this.key) {
+          this.connect(mediaSource);
+        }
       });
 
       this.connection.open(mediaSource, this.key);

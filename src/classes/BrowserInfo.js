@@ -7,18 +7,18 @@ export default class BrowserInfo {
     this.load = new Promise((resolve) => DetectRTC.load(resolve));
   }
 
-  async exchange (key, master, subject) {
+  async exchange (key, master, subjects) {
     await this.load;
     const entry = await getEntry(key);
     console.log('-> browserInfo: entry key', entry.key);
 
     const info = JSON.stringify(Object.assign(DetectRTC, { isMaster: master }));
-    console.log('-> browserInfo: info', JSON.parse(info));
     if (!master) {
       send(entry, info);
       console.log('-> browserInfo: send info as slave');
+      subjects.get('local').next(JSON.parse(info));
     }
-    return receive(entry, info, master, subject);
+    return receive(entry, info, master, subjects.get('remote'));
   }
 
   async destroy () {
@@ -35,6 +35,7 @@ function send (entry, str) {
 }
 
 function receive (entry, info, master, subject) {
+  subject.next({});
   console.log('-> browserInfo: await info');
   return fromEvent(entry, 'child_added')
     .pipe(
