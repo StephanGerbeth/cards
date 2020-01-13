@@ -3,8 +3,8 @@ import { fromEvent } from 'rxjs';
 import { take } from 'rxjs/operators';
 import BrowserInfo from '@/classes/BrowserInfo';
 import MediaSource from '@/classes/MediaSource';
-import SubjectHandler from '@/classes/SubjectHandler';
-import DataHandler from '@/classes/DataHandler';
+import ConnectionState from '@/classes/ConnectionState';
+import ChannelManager from '@/classes/ChannelManager';
 
 const DESCRIPTION = [
   'answer', 'offer'
@@ -22,11 +22,11 @@ export default class Connection {
 
     this.mediaSource = new MediaSource();
 
-    this.setup = new SubjectHandler('key');
-    this.state = new SubjectHandler('open', 'close');
-    this.browser = new SubjectHandler('local', 'remote');
-    this.stream = new SubjectHandler('local', 'remote');
-    this.data = new DataHandler();
+    this.setup = new ConnectionState('key');
+    this.status = new ConnectionState('open', 'close');
+    this.browser = new ConnectionState('local', 'remote');
+    this.stream = new ConnectionState('local', 'remote');
+    this.channels = new ChannelManager();
   }
 
   async open (source = { getStream: () => new Promise((resolve) => resolve(null)) }, key = null) {
@@ -42,12 +42,13 @@ export default class Connection {
     console.log('-> connection: remote browser info');
 
     const stream = await this.mediaSource.getStream(this.audio);
+    this.stream.get('local').next(stream);
 
     this.peer = new FastRTCPeer({ isOfferer: !!key, streams: { mediaStream: stream } });
     console.log('-> connection: update capabilities');
 
-    this.stream.get('local').next(getCapabilitiesOfStream(stream));
-    console.log('-> connection: subsribe to stream update');
+    // this.stream.get('local').next(getCapabilitiesOfStream(stream));
+    // console.log('-> connection: subsribe to stream update');
 
     detectStream(this.peer, this.stream.get('remote'));
     console.log('-> connection: add subscriptions');
@@ -56,15 +57,15 @@ export default class Connection {
     console.log('-> connection: subscribe to open event');
 
     const open = await detectConnect(this.peer);
-    this.state.get('open').next(open);
+    this.status.get('open').next(open);
     console.log('-> connection: open');
 
-    this.data.setup(this.peer);
+    this.channels.setup(this.peer);
 
     await detectDisconnect(this.peer);
     console.log('-> connection: closed');
 
-    this.state.get('close').next(this.peer);
+    this.status.get('close').next(this.peer);
     this.destroy();
   }
 
@@ -89,7 +90,7 @@ export default class Connection {
         return result;
       }, {})
     });
-    this.stream.get('local').next(getCapabilitiesOfStream(stream));
+    this.stream.get('local').next(stream);
   }
 
   close () {
@@ -107,10 +108,10 @@ export default class Connection {
     }, []);
     this.mediaSource.destroy();
     this.setup.destroy();
-    this.state.destroy();
+    this.status.destroy();
     this.browser.destroy();
     this.stream.destroy();
-    this.data.destroy();
+    this.channels.destroy();
   }
 }
 
@@ -137,7 +138,7 @@ function processSignal (peer, snapshot) {
 }
 
 async function detectConnect (peer) {
-  return await detect(peer, 'open');
+  return detect(peer, 'open');
 }
 
 async function detectStream (peer, subject) {
@@ -162,8 +163,8 @@ function detect (obj, type) {
     .toPromise();
 }
 
-function getCapabilitiesOfStream (stream) {
-  return stream.getTracks().map((track) => {
-    return track.getCapabilities();
-  });
-}
+// function getCapabilitiesOfStream (stream) {
+//   return stream.getTracks().map((track) => {
+//     return track.getCapabilities();
+//   });
+// }

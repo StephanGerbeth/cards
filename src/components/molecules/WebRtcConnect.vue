@@ -21,22 +21,18 @@
     >
       HangUp!
     </button>
-    <video
-      ref="video"
-      :srcObject.prop="srcObject"
-      autoplay
-      playsinline
-      width="640"
-      height="480"
-    />
-    <!-- <video
-      ref="test"
-      src="/video/test.mp4"
-      autoplay
-      playsinline
-      muted
-      loop
-    /> -->
+    <div class="video-container">
+      <video-canvas
+        :stream="srcObject"
+        :master="!!key"
+        mode="remote"
+      />
+      <video-canvas
+        :stream="srcObjectLocal"
+        :master="!!key"
+        mode="local"
+      />
+    </div>
     <button @click="showCamSource">
       Cam
     </button>
@@ -70,6 +66,7 @@
 <script>
 import Connection from '@/classes/Connection';
 import QrCode from '@/components/atoms/QrCode';
+import VideoCanvas from '@/components/atoms/VideoCanvas';
 import Virtual from '@/classes/mediaSource/Virtual';
 import Cam from '@/classes/mediaSource/Cam';
 import Video from '@/classes/mediaSource/Video';
@@ -81,12 +78,14 @@ import BrowserInfo from '@/components/organisms/BrowserInfo';
 export default {
   components: {
     QrCode,
+    VideoCanvas,
     BrowserInfo
   },
 
   data () {
     return {
       srcObject: null,
+      srcObjectLocal: null,
       generatedKey: null,
       connection: null,
       connected: false,
@@ -114,7 +113,6 @@ export default {
     const cam = new Cam();
     this.availableCapabilitiesLocal = await cam.getAvailableCapabilities();
     console.log(this.availableCapabilitiesLocal);
-
     this.connect(cam);
   },
 
@@ -129,6 +127,10 @@ export default {
   },
 
   methods: {
+    getType (type) {
+      return (this.key && type == 'remote') || (!this.key && type === 'local');
+    },
+
     async connect (mediaSource) {
       let interval = null;
       this.connection = new Connection();
@@ -137,11 +139,11 @@ export default {
         this.generatedKey = key;
       });
 
-      this.connection.state.get('open').subscribe(() => {
+      this.connection.status.get('open').subscribe(() => {
         this.connected = true;
 
         interval = setInterval(() => {
-          this.connection.data.get('test').publish({ text: 'hello world' });
+          this.connection.channels.get('test').publish({ text: 'hello world' });
         }, 2000);
       });
 
@@ -154,9 +156,9 @@ export default {
         this.remoteBrowserInfo = info;
       });
 
-      this.connection.stream.get('local').subscribe((capabilities) => {
+      this.connection.stream.get('local').subscribe((stream) => {
         console.log('-> controller: change local stream');
-        this.currentCapabilitiesLocal = capabilities;
+        this.srcObjectLocal = stream;
       });
 
       this.connection.stream.get('remote').subscribe(async (stream) => {
@@ -164,15 +166,15 @@ export default {
         this.srcObject = stream;
       });
 
-      this.connection.data.get('test').subscribe((data) => {
+      this.connection.channels.get('test').subscribe((data) => {
         console.log('-> controller: received data', data);
       });
 
-      this.connection.state.get('close').subscribe(() => {
+      this.connection.status.get('close').subscribe(() => {
         this.connected = false;
         clearInterval(interval);
         this.connection = null;
-        console.log(this);
+
         if (!this.key) {
           this.connect(mediaSource);
         }
@@ -186,11 +188,11 @@ export default {
     },
 
     async showCamSource () {
-      this.connection.addSource(new SourceToCanvas(new Cam()));
+      this.connection.addSource(new Cam());
     },
 
     async showVideoSource () {
-      this.connection.addSource(new SourceToCanvas(new Video('/video/test.mp4')));
+      this.connection.addSource(new SourceToCanvas(new Video({ url: '/video/test.mp4' })));
     },
 
     async showTestScreen () {
@@ -201,7 +203,7 @@ export default {
       this.connection.mute();
     },
 
-    switchCamLocal (e) {
+    async switchCamLocal (e) {
       console.log('-> controller: switch to', e.target.value);
       const constraints = {
         video: {
@@ -242,5 +244,9 @@ export default {
       background-color: green;
     }
   }
+}
+
+.video-container {
+  position: relative;
 }
 </style>

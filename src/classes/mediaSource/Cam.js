@@ -5,7 +5,7 @@ export default class CamSource {
 
   async getStream (audio = true) {
     this.constraints.audio = audio;
-    return await getUserMedia(this.constraints);
+    return getUserMedia(this.constraints);
   }
 
   async getAvailableCapabilities () {

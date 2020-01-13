@@ -1,6 +1,6 @@
 import { fromEvent } from 'rxjs';
 import { map } from 'rxjs/operators';
-import DataSubject from '@/classes/DataSubject';
+import Channel from '@/classes/Channel';
 
 export default class DataHandler {
   constructor() {
@@ -20,7 +20,7 @@ export default class DataHandler {
 
   get (type) {
     if (!this.subjects.has(type)) {
-      this.subjects.set(type, new DataSubject(type, this.peer));
+      this.subjects.set(type, new Channel(type, this.peer));
     }
     return this.subjects.get(type);
   }
