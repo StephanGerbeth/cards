@@ -29,3 +29,4 @@ logs
 sw.*
 env/cert/*
 !env/cert/README.md
+**/opencv*

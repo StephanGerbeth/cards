@@ -21,13 +21,13 @@
     >
       HangUp!
     </button>
-    <div class="video-container">
-      <video-canvas
+    <div class="stream-container">
+      <stream-controller
         :stream="srcObject"
         :master="!!key"
         mode="remote"
       />
-      <video-canvas
+      <stream-controller
         :stream="srcObjectLocal"
         :master="!!key"
         mode="local"
@@ -66,7 +66,7 @@
 <script>
 import Connection from '@/classes/Connection';
 import QrCode from '@/components/atoms/QrCode';
-import VideoCanvas from '@/components/atoms/VideoCanvas';
+import StreamController from '@/components/molecules/StreamController';
 import Virtual from '@/classes/mediaSource/Virtual';
 import Cam from '@/classes/mediaSource/Cam';
 import Video from '@/classes/mediaSource/Video';
@@ -78,7 +78,7 @@ import BrowserInfo from '@/components/organisms/BrowserInfo';
 export default {
   components: {
     QrCode,
-    VideoCanvas,
+    StreamController,
     BrowserInfo
   },
 
@@ -246,7 +246,7 @@ export default {
   }
 }
 
-.video-container {
+.stream-container {
   position: relative;
 }
 </style>

@@ -11,7 +11,6 @@ const DESCRIPTION = [
 ];
 
 export default class Connection {
-
   constructor() {
     console.log('--- NEW WEBRTC CLIENT ---');
     this.peer = null;

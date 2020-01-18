@@ -48,6 +48,15 @@ module.exports = {
   modern: isDev ? false : 'client',
 
   build: {
+    extend (config, { isClient }) {
+      if (isClient) { // web workers are only available client-side
+        config.module.rules.push({
+          test: /\.worker\/.+$/,
+          loader: 'worker-loader',
+          exclude: /(node_modules)/
+        });
+      }
+    },
     analyze: false,
     filenames: {
       app: ({ isDev }) => isDev ? '[name].js' : '[name].[chunkhash].js',

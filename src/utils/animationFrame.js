@@ -18,3 +18,12 @@ export function loopByFPS (fps, fn) {
     }
   };
 }
+
+export function draw (fn = new Function()) {
+  const id = global.requestAnimationFrame(fn);
+  return {
+    stop: function () {
+      global.cancelAnimationFrame(id);
+    }
+  };
+}

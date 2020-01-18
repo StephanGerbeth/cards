@@ -8,22 +8,22 @@
       loop
       @playing="onPlaying"
     />
-    <canvas-video
+    <source-to-canvas
       v-if="video"
       :source="video"
-      :fps="Number(10)"
+      :fps="Number(60)"
     />
   </div>
 </template>
 
 <script>
-import CanvasVideo from '@/components/atoms/CanvasVideo';
+import SourceToCanvas from '@/components/atoms/SourceToCanvas';
 
 global.MediaStream = global.MediaStream || Object;
 
 export default {
   components: {
-    CanvasVideo
+    SourceToCanvas
   },
 
   props: {
@@ -61,9 +61,8 @@ export default {
 
   methods: {
     onPlaying (e) {
+      console.log('PLAYING');
       this.video = e.target;
-      console.log('PLAYING', e);
-
     }
   }
 };
