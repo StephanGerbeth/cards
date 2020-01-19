@@ -17,6 +17,7 @@
 
 <script>
 import { loopByFPS, draw } from '@/utils/animationFrame';
+import Worker from '@/classes/Worker';
 
 global.HTMLVideoElement = global.HTMLVideoElement || Object;
 
@@ -54,44 +55,51 @@ export default {
   },
 
   async mounted () {
-    this.worker = new require('worker-loader!@/worker/grayscale.js')();
+    this.worker = new Worker(require('worker-loader!@/worker/grayscale.js'), 1);
     this.contextInput = this.$refs.input.getContext('2d');
     this.contextOutput = this.$refs.output.getContext('2d');
     this.loop = loopByFPS(this.fps, update.bind(this));
 
-    this.worker.addEventListener('message', this.onMessage);
+    this.worker.ready(() => {
+      this.loop.start();
+    });
+  },
+
+  destroyed () {
+    this.loop.stop();
+    this.drawProcess.stop();
+    this.worker.destroy();
   },
 
   methods: {
-    onMessage (e) {
-      if (e.data.type === 'status') {
-        this.loop.start();
-      }
-      if (e.data.type === 'image') {
-        this.updateDebugCanvas(e.data);
-      }
-    },
-
     updateDebugCanvas (imageData) {
+      let data = imageData.data;
       this.drawProcess.stop();
       this.drawProcess = draw(() => {
-        this.contextOutput.putImageData(new ImageData(imageData.data, this.width, this.height), 0, 0);
+        this.contextOutput.putImageData(new ImageData(data, this.width, this.height), 0, 0);
       });
     }
   }
 };
 
-function update () {
+async function update () {
   this.contextInput.drawImage(this.source, 0, 0, this.width, this.height);
-  const data = this.contextInput.getImageData(0, 0, this.width, this.height).data;
-  this.worker.postMessage({
-    type: 'image',
-    imageData: {
-      data: data,
-      width: this.width,
-      height: this.height
+  if (this.worker.isIdle()) {
+    const data = this.contextInput.getImageData(0, 0, this.width, this.height).data;
+    try {
+      const e = await this.worker.publish({
+        type: 'image',
+        data: {
+          image: data,
+          width: this.width,
+          height: this.height
+        }
+      }, [data.buffer]);
+      this.updateDebugCanvas(e.data);
+    } catch (e) {
+      console.warn(e.toString());
     }
-  }, [data.buffer]);
+  }
 }
 </script>
 

@@ -12,13 +12,13 @@ export function loadProcess (constructor) {
         console.error('Error in Worker', e);
       }
     });
-    publishStatus({ ready: true });
+    publishReady();
   });
 }
 
 function process (e, instance, dst, cv) {
-  const data = new Uint32Array(e.data.imageData.data);
-  const src = new cv.Mat(e.data.imageData.height, e.data.imageData.width, cv.CV_8UC4);
+  const data = new Uint32Array(e.data.data.image);
+  const src = new cv.Mat(e.data.data.height, e.data.data.width, cv.CV_8UC4);
   src.data.set(data);
 
   publishImage(instance.process(src, dst, cv));
@@ -26,8 +26,8 @@ function process (e, instance, dst, cv) {
   src.delete();
 }
 
-function publishStatus (data) {
-  self.postMessage({ type: 'status', data: data });
+function publishReady () {
+  self.postMessage({ type: 'ready' });
 }
 
 function publishImage (imageData) {
