@@ -18,11 +18,15 @@ export default class Worker {
 
   async process (data, shared) {
     const entry = this.waiting.shift();
-    return process(entry, data, shared)
-      .then((result) => {
-        this.waiting.push(entry);
-        return result;
-      }).catch(skippedFrame);
+    let result = null;
+    try {
+      result = await process(entry, data, shared);
+    } catch (e) {
+      skippedFrame();
+    } finally {
+      this.waiting.push(entry);
+    }
+    return result;
   }
 
   destroy () {

@@ -72,8 +72,7 @@ export default {
   },
 
   methods: {
-    async updateDebugCanvas (imageData) {
-      const { data } = await imageData;
+    async updateDebugCanvas (data) {
       this.drawProcess.stop();
       this.drawProcess = draw(() => {
         this.contextOutput.putImageData(new ImageData(data, this.width, this.height), 0, 0);
@@ -82,12 +81,12 @@ export default {
   }
 };
 
-function update () {
+async function update () {
   this.contextInput.drawImage(this.source, 0, 0, this.width, this.height);
   if (this.worker.isIdle()) {
     const image = this.contextInput.getImageData(0, 0, this.width, this.height).data;
     try {
-      const data = process(this.worker, image, this.width, this.height);
+      const { data } = await process(this.worker, image, this.width, this.height);
       this.updateDebugCanvas(data);
     } catch (e) {
       console.error(e.toString());
