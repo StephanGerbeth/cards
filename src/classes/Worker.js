@@ -3,29 +3,22 @@ import { take, filter } from 'rxjs/operators';
 
 export default class Worker {
   constructor(Module, num = 1) {
-    this.count = 0;
     this.pool = [...new Array(num)].map(() => new Module());
     this.waiting = [...this.pool];
-    this.observable = Promise.all(this.waiting.map((instance) => {
-      return fromEvent(instance, 'message')
-        .pipe(
-          filter((e) => e.data.type === 'ready'),
-          take(1)
-        ).toPromise();
-    }));
+    this.workersReady = onWorkersReady(this.pool);
   }
 
   ready (fn) {
-    return this.observable.then(fn);
+    return this.workersReady.then(fn);
   }
 
   isIdle () {
     return this.waiting.length > 0;
   }
 
-  async publish (data, shared) {
+  async process (data, shared) {
     const entry = this.waiting.shift();
-    return transmit(entry, data, shared)
+    return process(entry, data, shared)
       .then((result) => {
         this.waiting.push(entry);
         return result;
@@ -39,7 +32,17 @@ export default class Worker {
   }
 }
 
-function transmit (entry, data, shared) {
+function onWorkersReady (workers) {
+  return Promise.all(workers.map((instance) => {
+    return fromEvent(instance, 'message')
+      .pipe(
+        filter((e) => e.data.type === 'ready'),
+        take(1)
+      ).toPromise();
+  }));
+}
+
+function process (entry, data, shared) {
   return new Promise((resolve) => {
     resolve(fromEvent(entry, 'message')
       .pipe(take(1))
