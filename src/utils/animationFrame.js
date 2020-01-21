@@ -1,29 +1,47 @@
-export function loopByFPS (fps, fn) {
-  let lastTime = 0;
-  let requestID = null;
+let lastTime = 0;
+let fps = 60;
+let requestID = null;
+let tasks = new Set();
 
-  const update = function (currentTime = 0) {
-    requestID = global.requestAnimationFrame(update);
-    if ((currentTime - lastTime) / 1000 >= 1 / fps) {
-      lastTime = currentTime;
-      fn();
-    }
-  };
-  return {
-    start: function () {
-      requestID = global.requestAnimationFrame(update);
-    },
-    stop: function () {
-      global.cancelAnimationFrame(requestID);
-    }
-  };
+function loop (currentTime = 0) {
+  if ((currentTime - lastTime) / 1000 >= 1 / fps) {
+    lastTime = currentTime;
+    tasks = [...tasks].reduce((result, task) => {
+      task.fn();
+      if (!task.single) {
+        result.add(task);
+      }
+      return result;
+    }, new Set());
+  }
+  requestID = global.requestAnimationFrame(loop);
 }
 
-export function draw (fn = new Function()) {
-  const id = global.requestAnimationFrame(fn);
+function start () {
+  if (tasks.size) {
+    console.log('-> animationFrame: global start');
+    loop();
+  }
+}
+
+function stop () {
+  if (!tasks.size) {
+    global.cancelAnimationFrame(requestID);
+    console.log('-> animationFrame: global stop');
+  }
+}
+
+export function addToAnimationFrame (fn, single = false) {
+  const value = { fn: fn, single };
+  tasks.add(value);
+  console.log('-> animationFrame: add task - number of tasks', tasks.size);
+  start();
+
   return {
-    stop: function () {
-      global.cancelAnimationFrame(id);
+    destroy () {
+      tasks.delete(value);
+      console.log('-> animationFrame: removed task - number of tasks', tasks.size);
+      stop();
     }
   };
 }

@@ -16,7 +16,7 @@
 </template>
 
 <script>
-import { loopByFPS, draw } from '@/utils/animationFrame';
+import { addToAnimationFrame } from '@/utils/animationFrame';
 import Worker from '@/classes/Worker';
 
 global.HTMLVideoElement = global.HTMLVideoElement || Object;
@@ -40,7 +40,7 @@ export default {
 
   data () {
     return {
-      drawProcess: draw()
+      imageData: null
     };
   },
 
@@ -58,51 +58,47 @@ export default {
     this.worker = new Worker(require('worker-loader!@/worker/grayscale.js'), 1);
     this.contextInput = this.$refs.input.getContext('2d');
     this.contextOutput = this.$refs.output.getContext('2d');
-    this.loop = loopByFPS(this.fps, update.bind(this));
+    this.imageData = new ImageData(this.width, this.height);
 
     this.worker.ready(() => {
-      this.loop.start();
+      console.log('-> SourceToCanvas: start webworker process');
+      this.aF = addToAnimationFrame(update.bind(this));
     });
   },
 
   destroyed () {
-    this.loop.stop();
-    this.drawProcess.stop();
+    this.aF.destroy();
     this.worker.destroy();
   },
 
   methods: {
-    async updateDebugCanvas (data) {
-      this.drawProcess.stop();
-      this.drawProcess = draw(() => {
-        this.contextOutput.putImageData(new ImageData(data, this.width, this.height), 0, 0);
-      });
+    processImageData () {
+      if (this.worker.isIdle()) {
+        const image = this.contextInput.getImageData(0, 0, this.width, this.height);
+        process(this.worker, image)
+          .then((data) => {
+            this.imageData = data;
+            return data;
+          })
+          .catch((e) => {
+            console.error(e.toString());
+          });
+      }
     }
   }
 };
 
-async function update () {
+function update () {
   this.contextInput.drawImage(this.source, 0, 0, this.width, this.height);
-  if (this.worker.isIdle()) {
-    const image = this.contextInput.getImageData(0, 0, this.width, this.height).data;
-    try {
-      const { data } = await process(this.worker, image, this.width, this.height);
-      this.updateDebugCanvas(data);
-    } catch (e) {
-      console.error(e.toString());
-    }
-  }
+  this.contextOutput.putImageData(this.imageData, 0, 0);
+  setTimeout(this.processImageData, 0);
 }
 
-async function process (worker, image, width, height) {
+async function process (worker, image) {
   const { data } = await worker.process({
     type: 'image',
-    data: {
-      image: image,
-      width: width,
-      height: height
-    }
-  }, [image.buffer]);
+    data: image
+  }, [image.data.buffer]);
   return data;
 }
 </script>
@@ -117,6 +113,7 @@ canvas {
   &.input {
     top: 0;
     left: 0;
+    display: none;
     transform-origin: top left;
   }
 

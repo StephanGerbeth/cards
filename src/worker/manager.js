@@ -17,16 +17,15 @@ function prepareProcess (cv, constructor) {
 function onMessage (cv, instance, dst) {
   return (e) => {
     try {
-      process(cv, e, instance, dst);
+      process(cv, e.data.data, instance, dst);
     } catch (e) {
       console.error('Error in Worker', e);
     }
   };
 }
 
-function process (cv, e, instance, dst) {
-  const data = e.data.data;
-  const src = createSrc(cv, new Uint32Array(data.image), data.width, data.height);
+function process (cv, imageData, instance, dst) {
+  const src = createSrc(cv, new Uint32Array(imageData.data), imageData.width, imageData.height);
   publishImage(instance.process(src, dst, cv));
   src.delete();
 }
@@ -41,7 +40,7 @@ function publishReady () {
   self.postMessage({ type: 'ready' });
 }
 
-function publishImage (imageData) {
-  const data = new Uint8ClampedArray(imageData.data);
-  self.postMessage({ type: 'image', data: data }, [data.buffer]);
+function publishImage (dst) {
+  const imageData = new ImageData(new Uint8ClampedArray(dst.data), dst.cols, dst.rows);
+  self.postMessage({ type: 'image', data: imageData }, [imageData.data.buffer]);
 }

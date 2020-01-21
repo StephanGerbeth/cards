@@ -26,7 +26,7 @@ export default class Worker {
     } finally {
       this.waiting.push(entry);
     }
-    return result;
+    return result.data;
   }
 
   destroy () {
