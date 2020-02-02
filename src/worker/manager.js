@@ -17,16 +17,16 @@ function prepareProcess (cv, constructor) {
 function onMessage (cv, instance, dst) {
   return (e) => {
     try {
-      process(cv, e.data.data, instance, dst);
+      process(cv, e.data.data, instance, dst, e.data.type);
     } catch (e) {
       console.error('Error in Worker', e);
     }
   };
 }
 
-function process (cv, imageData, instance, dst) {
+async function process (cv, imageData, instance, dst, type = 'process') {
   const src = createSrc(cv, new Uint32Array(imageData.data), imageData.width, imageData.height);
-  publishImage(instance.process(src, dst, cv));
+  publishImage(instance[String(type)](src, dst, cv));
   src.delete();
 }
 

@@ -16,6 +16,12 @@ export default class Worker {
     return this.waiting.length > 0;
   }
 
+  async setup (fn, data, shared) {
+    return this.ready(() => {
+      return fn(this.process(data, shared));
+    });
+  }
+
   async process (data, shared) {
     const entry = this.waiting.shift();
     let result = null;
