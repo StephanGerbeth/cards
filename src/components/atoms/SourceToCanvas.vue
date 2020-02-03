@@ -139,7 +139,8 @@ function loadImage (url = '/IMG_1825_small.JPG') {
 canvas {
   position: absolute;
   width: 100%;
-  transform: scale(0.5);
+
+  /* transform: scale(0.5); */
 
   &.input {
     top: 0;
