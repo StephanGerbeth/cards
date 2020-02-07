@@ -1,9 +1,9 @@
 import { loadProcess } from '@/worker/manager';
 
 class Grayscale {
-  process (src, dst, cv) {
-    cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY);
-    cv.cvtColor(src, dst, cv.COLOR_GRAY2RGBA);
+  process (src, dst) {
+    self.cv.cvtColor(src, src, self.cv.COLOR_RGBA2GRAY);
+    self.cv.cvtColor(src, dst, self.cv.COLOR_GRAY2RGBA);
 
     return dst;
   }

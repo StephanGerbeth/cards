@@ -3,35 +3,37 @@ import load from '@/worker/resources/opencv';
 
 export function loadProcess (constructor) {
   load((cv) => {
-    prepareProcess(cv, constructor);
+    self.cv = cv;
+    prepareProcess(constructor);
     publishReady();
   });
 }
 
-function prepareProcess (cv, constructor) {
-  const instance = new constructor(cv);
-  const dst = new cv.Mat();
-  fromEvent(self, 'message').subscribe(onMessage(cv, instance, dst));
+function prepareProcess (constructor) {
+  const instance = new constructor();
+  fromEvent(self, 'message').subscribe(onMessage(instance));
 }
 
-function onMessage (cv, instance, dst) {
+function onMessage (instance) {
   return (e) => {
     try {
-      process(cv, e.data.data, instance, dst, e.data.type);
+      process(e.data.data, instance, e.data.type);
     } catch (e) {
       console.error('Error in Worker', e);
     }
   };
 }
 
-async function process (cv, imageData, instance, dst, type = 'process') {
-  const src = createSrc(cv, new Uint32Array(imageData.data), imageData.width, imageData.height);
-  publishImage(instance[String(type)](src, dst, cv));
+async function process (imageData, instance, type = 'process') {
+  const src = createSrc(new Uint32Array(imageData.data), imageData.width, imageData.height);
+  const dst = new self.cv.Mat(src.rows, src.cols, self.cv.CV_8UC4, new self.cv.Scalar(0, 0, 0, 0));
+  publishImage(instance[String(type)](src, dst));
   src.delete();
+  dst.delete();
 }
 
-function createSrc (cv, data, width, height) {
-  const src = new cv.Mat(height, width, cv.CV_8UC4);
+function createSrc (data, width, height) {
+  const src = new self.cv.Mat(height, width, self.cv.CV_8UC4);
   src.data.set(data);
   return src;
 }
