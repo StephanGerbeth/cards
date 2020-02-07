@@ -24,6 +24,8 @@
 
 import { loadFonts, prepareFonts, fontsToLinks } from '@/utils/fonts';
 import { directionDetectionObserver } from '@/service/viewport';
+import { addToAnimationFrame } from '@/utils/animationFrame';
+import Stats from 'stats.js';
 
 import {
   hydrateWhenVisible,
@@ -115,6 +117,11 @@ export default {
   },
 
   mounted () {
+    this.stats = new Stats();
+    this.stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(this.stats.dom);
+
+    addToAnimationFrame(this.updateStats);
 
     this.subscriptions = [
       directionDetectionObserver.subscribe(this.onDirectionChange)
@@ -146,6 +153,10 @@ export default {
     onClickMenuButton () {
       this.preventMenuOpened = false;
       this.$refs.pageMenu.$el.dispatchEvent(new CustomEvent('hydrate'));
+    },
+
+    updateStats () {
+      this.stats.update();
     }
   },
 
