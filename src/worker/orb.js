@@ -11,6 +11,7 @@ class Grayscale {
     this.sourceDescriptor = new self.cv.Mat();
     this.sourceKeypoints = null;
 
+    // console.log();
     // const orb = new cv.ORB();
     // console.log('default name:', orb.getDefaultName());
     // console.log('edge threshold:', orb.getEdgeThreshold());
@@ -29,7 +30,7 @@ class Grayscale {
   setup (src) {
     convertToGrayscale(src);
     addGaussianBlur(src);
-    const { descriptor, keypoints } = getDescriptor(src);
+    const { descriptor, keypoints } = getDescriptor(src, 10000);
     this.sourceDescriptor = descriptor;
     this.sourceKeypoints = keypoints;
     this.sourceImg = src.clone();
@@ -39,17 +40,22 @@ class Grayscale {
   process (src, dst) {
     convertToGrayscale(src);
     addGaussianBlur(src);
-
-    const { keypoints, descriptor } = getDescriptor(src);
-
-    self.cv.drawKeypoints(src, keypoints, dst, this.color);
+    const { keypoints, descriptor } = getDescriptor(src, 100, 1, 1);
+    try {
+      self.cv.drawKeypoints(src, keypoints, dst, this.color);
+    } catch (e) {
+      console.log('drawKeypoints', e);
+    }
     // cv.drawKeypoints(this.sourceImg, this.sourceKeypoints, dst, this.color);
 
     const matches = new self.cv.DMatchVectorVector();
-    const bfMatcher = new self.cv.BFMatcher(self.cv.NORM_HAMMING, false);
-    bfMatcher.knnMatch(this.sourceDescriptor, descriptor, matches, 2, this.mask, false);
-    bfMatcher.delete();
-
+    try {
+      const bfMatcher = new self.cv.BFMatcher(self.cv.NORM_HAMMING, false);
+      bfMatcher.knnMatch(this.sourceDescriptor, descriptor, matches, 2, this.mask, false);
+      bfMatcher.delete();
+    } catch (e) {
+      console.error('bfmatcher', e);
+    }
     // const test = new cv.DMatchVectorVector();
     // const flann = new cv.FlannBasedMatcher();
     // flann.knnMatch(descriptor, this.sourceDescriptor, test, 2);
@@ -87,18 +93,15 @@ class Grayscale {
       const dstPts = self.cv.matFromArray(dstKp.length / 2, 1, self.cv.CV_32FC2, dstKp);
       const homo = self.cv.findHomography(srcPts, dstPts, self.cv.RANSAC, 5.0);
 
-      //cv.CV_8UC2
-      const obj_corners = self.cv.matFromArray(4, 1, self.cv.CV_32FC2, [0, 0, this.sourceImg.cols, 0, this.sourceImg.cols, this.sourceImg.rows, 0, this.sourceImg.rows]);
-      const scene_corners = self.cv.matFromArray(4, 1, self.cv.CV_32FC2, [0, 0, 0, 0, 0, 0, 0, 0]);
+      if (!homo.empty()) {
+        const obj_corners = self.cv.matFromArray(4, 1, self.cv.CV_32FC2, [0, 0, this.sourceImg.cols, 0, this.sourceImg.cols, this.sourceImg.rows, 0, this.sourceImg.rows]);
+        const scene_corners = self.cv.matFromArray(4, 1, self.cv.CV_32FC2, [0, 0, 0, 0, 0, 0, 0, 0]);
 
-      try {
         self.cv.perspectiveTransform(obj_corners, scene_corners, homo);
         self.cv.line(dst, new self.cv.Point(scene_corners.floatAt(0), scene_corners.floatAt(1)), new self.cv.Point(scene_corners.floatAt(2), scene_corners.floatAt(3)), this.color, 10);
         self.cv.line(dst, new self.cv.Point(scene_corners.floatAt(2), scene_corners.floatAt(3)), new self.cv.Point(scene_corners.floatAt(4), scene_corners.floatAt(5)), this.color, 10);
         self.cv.line(dst, new self.cv.Point(scene_corners.floatAt(4), scene_corners.floatAt(5)), new self.cv.Point(scene_corners.floatAt(6), scene_corners.floatAt(7)), this.color, 10);
         self.cv.line(dst, new self.cv.Point(scene_corners.floatAt(6), scene_corners.floatAt(7)), new self.cv.Point(scene_corners.floatAt(0), scene_corners.floatAt(1)), this.color, 10);
-      } catch (e) {
-        console.error(e);
       }
       homo.delete();
       srcPts.delete();
@@ -127,14 +130,19 @@ function addGaussianBlur (src) {
   self.cv.GaussianBlur(src, src, new self.cv.Size(blurSize, blurSize), 0, 0, self.cv.BORDER_DEFAULT);
 }
 
-function getDescriptor (src) {
+function getDescriptor (src, max = 10000, scaleFactor = 1.2, nLevels = 8) {
+
   const noArray = new self.cv.Mat();
   const keypoints = new self.cv.KeyPointVector();
   const descriptor = new self.cv.Mat();
-  const orb = new self.cv.ORB(10000);
-  orb.detectAndCompute(src, noArray, keypoints, descriptor);
-  orb.delete();
-  return { descriptor, keypoints };
+  const orb = new self.cv.ORB(max, scaleFactor, nLevels);
+  try {
+    orb.detectAndCompute(src, noArray, keypoints, descriptor);
+    orb.delete();
+    return { descriptor, keypoints };
+  } catch (e) {
+    console.error('DESCRIPTOR FAIL', e, src);
+  }
 }
 
 loadProcess(Grayscale);

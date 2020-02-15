@@ -125,7 +125,7 @@ async function process (worker, image, type = 'process') {
   return data;
 }
 
-function loadImage (url = '/IMG_1825_small.JPG') {
+function loadImage (url = '/IMG_1849_small.JPG') {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);

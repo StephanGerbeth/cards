@@ -4,6 +4,7 @@ import load from '@/worker/resources/opencv';
 export function loadProcess (constructor) {
   load((cv) => {
     self.cv = cv;
+    console.log(cv.Ptr);
     prepareProcess(constructor);
     publishReady();
   });
@@ -25,11 +26,15 @@ function onMessage (instance) {
 }
 
 async function process (imageData, instance, type = 'process') {
-  const src = createSrc(new Uint32Array(imageData.data), imageData.width, imageData.height);
-  const dst = new self.cv.Mat(src.rows, src.cols, self.cv.CV_8UC4, new self.cv.Scalar(0, 0, 0, 0));
-  publishImage(instance[String(type)](src, dst));
-  src.delete();
-  dst.delete();
+  try {
+    const src = createSrc(new Uint32Array(imageData.data), imageData.width, imageData.height);
+    const dst = new self.cv.Mat(src.rows, src.cols, self.cv.CV_8UC4, new self.cv.Scalar(0, 0, 0, 0));
+    publishImage(instance[String(type)](src, dst));
+    src.delete();
+    dst.delete();
+  } catch (e) {
+    console.error('PROCESS FAIL', e);
+  }
 }
 
 function createSrc (data, width, height) {
