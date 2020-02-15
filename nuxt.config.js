@@ -48,6 +48,15 @@ module.exports = {
   modern: isDev ? false : 'client',
 
   build: {
+    extend (config, { isClient }) {
+      if (isClient) { // web workers are only available client-side
+        config.module.rules.push({
+          test: /\.worker\/.+$/,
+          loader: 'worker-loader',
+          exclude: /(node_modules)/
+        });
+      }
+    },
     analyze: false,
     filenames: {
       app: ({ isDev }) => isDev ? '[name].js' : '[name].[chunkhash].js',
@@ -148,7 +157,7 @@ module.exports = {
     '@/modules/fix/image',
     '@/modules/svg',
     '@/modules/image',
-    '@/modules/analyzer',
+    // '@/modules/analyzer',
     '@nuxtjs/axios',
     [
       '@bazzite/nuxt-optimized-images', {
@@ -209,6 +218,9 @@ module.exports = {
     [
       'nuxt-polyfill', {
         features: [
+          // {
+          //   require: 'webrtc-adapter'
+          // },
           {
             require: 'object-fit-images',
             detect: () => 'objectFit' in document.documentElement.style,

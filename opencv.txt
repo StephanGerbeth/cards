@@ -1,0 +1,6 @@
+info:
+https://github.com/opencv/opencv/issues/13356#issuecomment-521882672
+
+
+commands:
+python ./platforms/js/build_js.py --emscripten_dir /Users/stephan.gerbeth/dev/emsdk/upstream/emscripten build_js
