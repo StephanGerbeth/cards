@@ -92,7 +92,7 @@
     "rucksack-css": "^1.0.2",
     "sharp": "^0.23.2",
     "signalhub": "^4.9.0",
-    "stylelint": "^11.1.1",
+    "stylelint": "^15.10.1",
     "stylelint-config-css-modules": "^2.1.0",
     "stylelint-config-lost": "0.0.3",
     "stylelint-config-recess-order": "^2.0.3",
